@@ -1387,6 +1387,23 @@ bool ComboRow(const char* label, int* current, const char* const* items, int cou
 	return changed;
 }
 
+// ImGui's stock Combo takes a raw array and does not pass entries through the
+// localization layer. Build a transient translated view for those legacy lists.
+bool LocalizedCombo(const char* id, int* current, const char* const* items, int count)
+{
+	static thread_local std::vector<std::string> labels;
+	static thread_local std::vector<const char*> translated;
+	labels.clear();
+	translated.clear();
+	labels.reserve(count);
+	translated.reserve(count);
+	for (int i = 0; i < count; ++i) {
+		labels.emplace_back(Localization::Tr(items[i] ? items[i] : "-"));
+		translated.push_back(labels.back().c_str());
+	}
+	return ImGui::Combo(id, current, translated.data(), count);
+}
+
 bool InlineButton(const char* text, float width, bool accent = false, bool danger = false)
 {
 	ImGuiWindow* window = ImGui::GetCurrentWindow();
@@ -2513,7 +2530,7 @@ void LootItemRow(const LootFilter::ItemDef& def, ItemSettings& item)
 	dl->AddRectFilled(editRect.Min, editRect.Max, C(editHov ? kElevated : kControl), 4.f);
 	dl->AddRect(editRect.Min, editRect.Max, C(editHov ? Mix(kStroke, kAccent, 0.5f) : kStroke), 4.f);
 	{
-		const char* lbl = "Edit";
+		const char* lbl = Localization::Tr("Edit");
 		const float tw = TextW(font::inter_medium_small, lbl);
 		dl->AddText(font::inter_medium_small, font::inter_medium_small->FontSize,
 			ImVec2(editRect.Min.x + (editW - tw) * 0.5f, RowTextY(p.y, rowH, font::inter_medium_small)),
@@ -2526,7 +2543,7 @@ void LootItemRow(const LootFilter::ItemDef& def, ItemSettings& item)
 	{
 		char distBuf[16];
 		if (item.useGlobalDistance || item.maxDistance <= 0)
-			strcpy_s(distBuf, "Global");
+			strcpy_s(distBuf, Localization::Tr("Global"));
 		else
 			std::snprintf(distBuf, sizeof(distBuf), "%d m", item.maxDistance);
 		const float dtw = TextW(font::inter_medium_small, distBuf);
@@ -2553,7 +2570,8 @@ void LootItemRow(const LootFilter::ItemDef& def, ItemSettings& item)
 	{
 		bool changed = false;
 		ImGui::PushFont(font::inter_medium_widget);
-		ImGui::TextUnformatted(def.displayName);
+		const std::string localizedName = Localization::TranslateRuntime(def.displayName ? def.displayName : "");
+		ImGui::TextUnformatted(localizedName.c_str());
 		ImGui::PopFont();
 		ImGui::Separator();
 
@@ -2680,21 +2698,21 @@ void DrawWorldCatalog()
 	const float wSearch = ImMax(110.f, avail - wCat - wSort - wPrice - wAuth - cGap * 4.f);
 
 	ImGui::SetNextItemWidth(wCat);
-	if (ImGui::Combo("##lf_cat", &lf.SelectedCategory, kCatLabels.data(), (int)kCatLabels.size())) {}
+	if (LocalizedCombo("##lf_cat", &lf.SelectedCategory, kCatLabels.data(), (int)kCatLabels.size())) {}
 	ImGui::SameLine(0.f, cGap);
 	ImGui::SetNextItemWidth(wSearch);
 	if (ImGui::InputTextWithHint("##lf_search", Localization::Tr("Search items..."), s_search, sizeof(s_search)))
 		lf.SearchQuery = s_search;
 	ImGui::SameLine(0.f, cGap);
 	ImGui::SetNextItemWidth(wSort);
-	ImGui::Combo("##lf_sort", &lf.SortMode, kSortLabels, IM_ARRAYSIZE(kSortLabels));
+	LocalizedCombo("##lf_sort", &lf.SortMode, kSortLabels, IM_ARRAYSIZE(kSortLabels));
 	ImGui::SameLine(0.f, cGap);
 	ImGui::SetNextItemWidth(wPrice);
-	if (ImGui::Combo("##lf_price", &lf.PriceMode, kPriceLabels, IM_ARRAYSIZE(kPriceLabels))) g_dirty = true;
+	if (LocalizedCombo("##lf_price", &lf.PriceMode, kPriceLabels, IM_ARRAYSIZE(kPriceLabels))) g_dirty = true;
 	ImGui::SameLine(0.f, cGap);
 	ImGui::SetNextItemWidth(wAuth);
 	int authIdx = std::clamp(lf.AuthorityLevel - 1, 0, 4);
-	if (ImGui::Combo("##lf_auth", &authIdx, kAuthLabels, IM_ARRAYSIZE(kAuthLabels))) {
+	if (LocalizedCombo("##lf_auth", &authIdx, kAuthLabels, IM_ARRAYSIZE(kAuthLabels))) {
 		lf.AuthorityLevel = authIdx + 1;
 		g_dirty = true;
 	}
@@ -3265,7 +3283,7 @@ void DrawMiscServer()
 	ImGui::InputTextWithHint("##srv_search", Localization::Tr("Filter name, clan, weapon..."), serverSearch, sizeof(serverSearch));
 	ImGui::SameLine(0.f, 8.f);
 	ImGui::SetNextItemWidth(155.f);
-	ImGui::Combo("##srv_sort", &currentSort, sortModes, IM_ARRAYSIZE(sortModes));
+	LocalizedCombo("##srv_sort", &currentSort, sortModes, IM_ARRAYSIZE(sortModes));
 
 	// Inline pill filters on the right of the toolbar
 	auto inlinePill = [&](const char* lbl, bool* val) {
@@ -3287,9 +3305,9 @@ void DrawMiscServer()
 			DrawPillSwitch(dl, tr, *val ? 1.f : 0.f);
 		}
 	};
-	inlinePill("Alive", &filterAliveOnly);
-	inlinePill("Hide Party", &filterExcludeParty);
-	inlinePill("Hide Self", &filterExcludeSelf);
+	inlinePill(Localization::Tr("Alive"), &filterAliveOnly);
+	inlinePill(Localization::Tr("Hide Party"), &filterExcludeParty);
+	inlinePill(Localization::Tr("Hide Self"), &filterExcludeSelf);
 
 	ImGui::Separator();
 
@@ -3331,6 +3349,7 @@ void DrawMiscServer()
 			float curX = leftX;
 
 			std::string roleStr = ent.roleName.empty() ? "UNKNOWN" : ent.roleName;
+			roleStr = Localization::TranslateRuntime(roleStr);
 			ImVec4 roleColor = kTextDim;
 			if (CaseContains(roleStr.c_str(), "crim")) roleColor = kRed;
 			else if (CaseContains(roleStr.c_str(), "pol") || CaseContains(roleStr.c_str(), "cop")) roleColor = ImVec4(79 / 255.f, 148 / 255.f, 240 / 255.f, 1.f);
@@ -3356,14 +3375,14 @@ void DrawMiscServer()
 					ImVec2(curX, line1Y + 1.f), C(kAccentBright), cStr.c_str());
 				curX += TextW(font::inter_medium_small, cStr.c_str()) + 6.f;
 			}
-			if (item.isLocal) drawBadge("YOU", kAccent);
-			else if (ent.isPartyMember) drawBadge("PARTY", kGreen);
-			if (ent.isDead) drawBadge("DEAD", kRed);
-			else if (ent.isKnockedDown || ent.isKnockedOut) drawBadge("KNOCKED", kAmber);
-			if (ent.isAimingAtLocal) drawBadge("AIMING AT YOU", kRed);
+			if (item.isLocal) drawBadge(Localization::Tr("YOU"), kAccent);
+			else if (ent.isPartyMember) drawBadge(Localization::Tr("PARTY"), kGreen);
+			if (ent.isDead) drawBadge(Localization::Tr("DEAD"), kRed);
+			else if (ent.isKnockedDown || ent.isKnockedOut) drawBadge(Localization::Tr("KNOCKED"), kAmber);
+			if (ent.isAimingAtLocal) drawBadge(Localization::Tr("AIMING AT YOU"), kRed);
 
 			const bool isTrusted = ConfigInstance.Aim.IsTrusted(ent.publicId);
-			if (isTrusted) drawBadge("TRUSTED", kTeal);
+		if (isTrusted) drawBadge(Localization::Tr("TRUSTED"), kTeal);
 
 			// Right side: Trust toggle + Distance
 			const std::string distStr = FormatDistance(item.distance);
@@ -3377,7 +3396,7 @@ void DrawMiscServer()
 				ImVec2(rightX - distW, line1Y + 1.f), distCol, distStr.c_str());
 
 			if (!item.isLocal && ent.publicId) {
-				const char* btnLabel = isTrusted ? "Untrust" : "Trust";
+			const char* btnLabel = Localization::Tr(isTrusted ? "Untrust" : "Trust");
 				const float btnW = TextW(font::inter_medium_small, btnLabel) + 12.f;
 				const float btnX = rightX - distW - btnW - 8.f;
 				const ImRect btnRect(ImVec2(btnX, line1Y - 1.f), ImVec2(btnX + btnW, line1Y + 16.f));
@@ -3395,7 +3414,7 @@ void DrawMiscServer()
 
 			// Line 2: Health, Armor, Weapon
 			char hpBuf[64];
-			if (ent.isDead) std::snprintf(hpBuf, sizeof(hpBuf), "DEAD");
+		if (ent.isDead) strcpy_s(hpBuf, Localization::Tr("DEAD"));
 			else if (ent.healthKnown && ent.health >= 0.f) {
 				if (ent.hasArmor && ent.armor > 0.f)
 					std::snprintf(hpBuf, sizeof(hpBuf), "HP %.0f/%.0f | AP %.0f",
@@ -3408,11 +3427,11 @@ void DrawMiscServer()
 			ImU32 hpCol = (ent.isDead || (ent.healthKnown && ent.health < 40.f)) ? C(kRed) : C(kTextDim);
 			dl->AddText(font::inter_medium_small, font::inter_medium_small->FontSize, ImVec2(leftX, line2Y), hpCol, hpBuf);
 			float l2X = leftX + TextW(font::inter_medium_small, hpBuf) + 14.f;
-			const std::string wepStr = "Weapon: " + item.weapon;
+		const std::string wepStr = std::string(Localization::Tr("Weapon: ")) + item.weapon;
 			dl->AddText(font::inter_medium_small, font::inter_medium_small->FontSize, ImVec2(l2X, line2Y), C(kTextFaint), wepStr.c_str());
 			if (ent.inVehicle) {
 				l2X += TextW(font::inter_medium_small, wepStr.c_str()) + 10.f;
-				dl->AddText(font::inter_medium_small, font::inter_medium_small->FontSize, ImVec2(l2X, line2Y), C(kAccentBright), "[Vehicle]");
+			dl->AddText(font::inter_medium_small, font::inter_medium_small->FontSize, ImVec2(l2X, line2Y), C(kAccentBright), Localization::Tr("[Vehicle]"));
 			}
 		}
 	}
@@ -4117,7 +4136,7 @@ void Init()
 	ImGuiIO& io = ImGui::GetIO();
 
 	static ImWchar glyphRanges[] = { 0x0020, 0x00FF, 0x2000, 0x206F, 0xE000, 0xF8FF, 0 };
-	const ImWchar* chineseRanges = io.Fonts->GetGlyphRangesChineseSimplifiedCommon();
+	const ImWchar* chineseRanges = io.Fonts->GetGlyphRangesChineseFull();
 
 	ImFontConfig cfg;
 	cfg.FontDataOwnedByAtlas = false;

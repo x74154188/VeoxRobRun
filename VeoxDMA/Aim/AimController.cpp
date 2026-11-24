@@ -12,6 +12,7 @@
 #include "CtlState.h"
 #include "InputManager.h"
 #include "Overlay.h"
+#include "../Misc/Localization.h"
 #include "imgui.h"
 #include <algorithm>
 #include <atomic>
@@ -3276,10 +3277,11 @@ void DrawDebug()
     ImDrawList* dl = ImGui::GetBackgroundDrawList();
     const ImVec2 origin(12.f, 12.f);
     for (int i = 0; i < 11; ++i) {
+        const std::string localized = Localization::TranslateRuntime(lines[i]);
         dl->AddText(ImVec2(origin.x + 1.f, origin.y + i * 15.f + 1.f),
-            IM_COL32(36, 38, 44, 220), lines[i]);
+            IM_COL32(36, 38, 44, 220), localized.c_str());
         dl->AddText(ImVec2(origin.x, origin.y + i * 15.f),
-            IM_COL32(120, 200, 255, 235), lines[i]);
+            IM_COL32(120, 200, 255, 235), localized.c_str());
     }
 }
 

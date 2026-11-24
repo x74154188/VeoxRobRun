@@ -634,7 +634,7 @@ void DrawVectorIcon(ImDrawList* dl, IconKind kind, const ImVec2& c, float r, ImU
 
 inline void MemoryWriteBadge(float rightX, float rowTop, float rowHeight, bool active, bool locked = false)
 {
-	const char* text = "MEM WRITE";
+	const char* text = Localization::IsChinese() ? "内存写入" : "MEM WRITE";
 	ImFont* f = font::inter_medium_small;
 	const float fs = f->FontSize * 0.86f;
 	const float tw = TextW(f, text) * 0.86f;
@@ -721,9 +721,10 @@ void BeginCard(const char* title, IconKind icon, float width, float fixedHeight 
 
 	if (meta && *meta)
 	{
+		const std::string translatedMeta = Localization::TranslateRuntime(meta);
 		TextRight(font::inter_medium_small, bb.Max.x - 14.f,
 			bb.Min.y + (kCardHeader - font::inter_medium_small->FontSize) * 0.5f,
-			C(kTextFaint), meta);
+			C(kTextFaint), translatedMeta.c_str());
 	}
 
 	ImGui::SetCursorScreenPos(ImVec2(bb.Min.x, bb.Min.y + kCardHeader));
@@ -786,6 +787,7 @@ bool DrawColourPopup(const char* popupId, const char* title,
 	{
 		const char* titleEnd = ImGui::FindRenderedTextEnd(title);
 		std::string dispTitle(title, titleEnd);
+		dispTitle = Localization::Tr(dispTitle.c_str());
 		ImGui::PushFont(font::inter_medium_widget);
 		ImGui::PushStyleColor(ImGuiCol_Text, kText);
 		ImGui::TextUnformatted(dispTitle.c_str());
@@ -1446,9 +1448,12 @@ bool ButtonRow(const char* label, const char* text, float width = 130.f, bool ac
 	MaybeFlashRow(dl, bb, (label && *label) ? label : text);
 
 	if (label && *label)
+	{
+		const char* translatedLabel = Localization::Tr(label);
 		dl->AddText(font::inter_medium_widget, font::inter_medium_widget->FontSize,
 			ImVec2(p.x, RowTextY(p.y, rowH, font::inter_medium_widget)),
-			C(kTextMid), label);
+			C(kTextMid), translatedLabel);
+	}
 
 	ImU32 fill = accent ? C(kAccent, hov ? 0.92f : 0.80f) : C(hov ? kElevated : kControl);
 	dl->AddRectFilled(button.Min, button.Max, fill, 5.f);
@@ -1914,13 +1919,13 @@ void DrawAimHardwarePad()
 		if (isNet)
 		{
 			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-			if (ImGui::InputTextWithHint("##ip", "IP address", ipAddr, sizeof(ipAddr))) g_dirty = true;
+			if (ImGui::InputTextWithHint("##ip", Localization::Tr("IP address"), ipAddr, sizeof(ipAddr))) g_dirty = true;
 			const float half = (ImGui::GetContentRegionAvail().x - 8.f) * 0.5f;
 			ImGui::SetNextItemWidth(half);
-			if (ImGui::InputTextWithHint("##netport", "Network port", netPort, sizeof(netPort))) g_dirty = true;
+			if (ImGui::InputTextWithHint("##netport", Localization::Tr("Network port"), netPort, sizeof(netPort))) g_dirty = true;
 			ImGui::SameLine(0.f, 8.f);
 			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-			if (ImGui::InputTextWithHint("##mac", "Device ID", macId, sizeof(macId))) g_dirty = true;
+			if (ImGui::InputTextWithHint("##mac", Localization::Tr("Device ID"), macId, sizeof(macId))) g_dirty = true;
 		}
 
 		if (isSerial)
@@ -1932,7 +1937,7 @@ void DrawAimHardwarePad()
 			if (manualPort || kind == DeviceKind::Ferrum)
 			{
 				ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-				if (ImGui::InputTextWithHint("##com", "COM3", comPort, sizeof(comPort))) g_dirty = true;
+				if (ImGui::InputTextWithHint("##com", Localization::Tr("COM3"), comPort, sizeof(comPort))) g_dirty = true;
 			}
 			else if (!ports.empty())
 			{
@@ -2577,7 +2582,7 @@ void LootItemRow(const LootFilter::ItemDef& def, ItemSettings& item)
 			char nameBuf[96]{};
 			std::strncpy(nameBuf, item.customName.c_str(), sizeof(nameBuf) - 1);
 			ImGui::SetNextItemWidth(210.f);
-			if (ImGui::InputTextWithHint("##custom_name", "Custom label (blank = default)", nameBuf, sizeof(nameBuf)))
+			if (ImGui::InputTextWithHint("##custom_name", Localization::Tr("Custom label (blank = default)"), nameBuf, sizeof(nameBuf)))
 			{
 				item.customName = nameBuf;
 				g_dirty = true;
@@ -2678,7 +2683,7 @@ void DrawWorldCatalog()
 	if (ImGui::Combo("##lf_cat", &lf.SelectedCategory, kCatLabels.data(), (int)kCatLabels.size())) {}
 	ImGui::SameLine(0.f, cGap);
 	ImGui::SetNextItemWidth(wSearch);
-	if (ImGui::InputTextWithHint("##lf_search", "Search items...", s_search, sizeof(s_search)))
+	if (ImGui::InputTextWithHint("##lf_search", Localization::Tr("Search items..."), s_search, sizeof(s_search)))
 		lf.SearchQuery = s_search;
 	ImGui::SameLine(0.f, cGap);
 	ImGui::SetNextItemWidth(wSort);
@@ -2781,10 +2786,10 @@ void DrawWorldCatalog()
 		const float distX = editX - gap - distW;
 		const float priceR = distX - gap;
 
-		dl->AddText(font::inter_medium_small, font::inter_medium_small->FontSize * 0.9f, ImVec2(hp.x + 16.f, hp.y), C(kTextFaint), "ITEM");
+		dl->AddText(font::inter_medium_small, font::inter_medium_small->FontSize * 0.9f, ImVec2(hp.x + 16.f, hp.y), C(kTextFaint), Localization::Tr("ITEM"));
 		TextRight(font::inter_medium_small, priceR, hp.y, C(kTextFaint), "PRICE");
-		dl->AddText(font::inter_medium_small, font::inter_medium_small->FontSize * 0.9f, ImVec2(distX + 12.f, hp.y), C(kTextFaint), "RANGE");
-		dl->AddText(font::inter_medium_small, font::inter_medium_small->FontSize * 0.9f, ImVec2(editX + 6.f, hp.y), C(kTextFaint), "DISPLAY");
+		dl->AddText(font::inter_medium_small, font::inter_medium_small->FontSize * 0.9f, ImVec2(distX + 12.f, hp.y), C(kTextFaint), Localization::Tr("RANGE"));
+		dl->AddText(font::inter_medium_small, font::inter_medium_small->FontSize * 0.9f, ImVec2(editX + 6.f, hp.y), C(kTextFaint), Localization::Tr("DISPLAY"));
 		TextRight(font::inter_medium_small, hp.x + hw, hp.y, C(kTextFaint), "SHOW");
 		dl->AddLine(ImVec2(hp.x, hp.y + 16.f), ImVec2(hp.x + hw + 10.f, hp.y + 16.f), C(kStrokeSoft), 1.f);
 		ImGui::Dummy(ImVec2(0.f, 18.f));
@@ -3257,7 +3262,7 @@ void DrawMiscServer()
 
 	// Compact filter toolbar
 	ImGui::SetNextItemWidth(200.f);
-	ImGui::InputTextWithHint("##srv_search", "Filter name, clan, weapon...", serverSearch, sizeof(serverSearch));
+	ImGui::InputTextWithHint("##srv_search", Localization::Tr("Filter name, clan, weapon..."), serverSearch, sizeof(serverSearch));
 	ImGui::SameLine(0.f, 8.f);
 	ImGui::SetNextItemWidth(155.f);
 	ImGui::Combo("##srv_sort", &currentSort, sortModes, IM_ARRAYSIZE(sortModes));
@@ -3619,7 +3624,7 @@ void DrawSettingsConfigs(bool attached, const std::string& statusText)
 		{
 			const float btnW = 80.f;
 			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - btnW - 8.f);
-			ImGui::InputTextWithHint("##rename_cfg", "New name...", renameConfigName, sizeof(renameConfigName));
+			ImGui::InputTextWithHint("##rename_cfg", Localization::Tr("New name..."), renameConfigName, sizeof(renameConfigName));
 			ImGui::SameLine(0.f, 8.f);
 			if (InlineButton("Rename", btnW)) {
 				if (renameConfigName[0] && selectedIdx >= 0 && selectedIdx < (int)configs.size()) {
@@ -3639,7 +3644,7 @@ void DrawSettingsConfigs(bool attached, const std::string& statusText)
 		{
 			const float btnW = 80.f;
 			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - btnW - 8.f);
-			ImGui::InputTextWithHint("##new_cfg", "Config name...", newConfigName, sizeof(newConfigName));
+			ImGui::InputTextWithHint("##new_cfg", Localization::Tr("Config name..."), newConfigName, sizeof(newConfigName));
 			ImGui::SameLine(0.f, 8.f);
 			if (InlineButton("Create", btnW)) {
 				if (newConfigName[0]) {
@@ -3808,7 +3813,7 @@ void DrawTopBar(const ImVec2& pos, ImRect& outTabsRect, ImRect& outSearchRect, I
 	ImGui::PushStyleColor(ImGuiCol_TextDisabled, C(kTextFaint));
 	ImGui::SetCursorScreenPos(outSearchRect.Min);
 	ImGui::SetNextItemWidth(searchW - (g_search[0] ? 22.f : 0.f));
-	const bool enterPressed = ImGui::InputTextWithHint("##gsearch", "Search...", g_search, sizeof(g_search),
+	const bool enterPressed = ImGui::InputTextWithHint("##gsearch", Localization::Tr("Search..."), g_search, sizeof(g_search),
 		ImGuiInputTextFlags_EnterReturnsTrue);
 	if (ImGui::IsItemActive() && g_search[0]) g_searchDropdownOpen = true;
 	ImGui::PopStyleColor(5);
@@ -3902,13 +3907,15 @@ void DrawSearchDropdown(const ImRect& searchRect)
 				if (hov)
 					dl->AddRectFilled(p, p + ImVec2(w, rowH), C(kElevated), 5.f);
 
+				const char* label = Localization::Tr(e->label);
 				dl->AddText(font::inter_medium_small, font::inter_medium_small->FontSize,
-					ImVec2(p.x + 8.f, RowTextY(p.y, rowH, font::inter_medium_small)), C(kText), e->label);
+					ImVec2(p.x + 8.f, RowTextY(p.y, rowH, font::inter_medium_small)), C(kText), label);
 
 				char pathBuf[64];
 				std::snprintf(pathBuf, sizeof(pathBuf), "%s -> %s", kTabNames[e->tab], subName);
+				const std::string translatedPath = Localization::TranslateRuntime(pathBuf);
 				TextRight(font::inter_medium_small, p.x + w - 8.f,
-					RowTextY(p.y, rowH, font::inter_medium_small), C(kTextDim), pathBuf);
+					RowTextY(p.y, rowH, font::inter_medium_small), C(kTextDim), translatedPath.c_str());
 
 				if (clicked) {
 					g_tab = e->tab;
@@ -4003,7 +4010,7 @@ void DrawFooter(const ImVec2& pos, bool attached)
 	float leftBound = pill.Max.x + 10.f;
 	if (attached && gamePid > 0) {
 		char pidBuf[32];
-		std::snprintf(pidBuf, sizeof(pidBuf), "PID %d", gamePid);
+		std::snprintf(pidBuf, sizeof(pidBuf), "%s %d", Localization::IsChinese() ? "进程号" : "PID", gamePid);
 		dl->AddText(font::inter_medium_small, font::inter_medium_small->FontSize * 0.92f,
 			ImVec2(leftBound, RowTextY(fy, kFooter, font::inter_medium_small)),
 			C(kTextFaint), pidBuf);
@@ -4022,7 +4029,7 @@ void DrawFooter(const ImVec2& pos, bool attached)
 	dl->AddRectFilled(rBtn.Min, rBtn.Max, C(rHov ? kElevated : kCard), 5.f);
 	dl->AddRect(rBtn.Min, rBtn.Max, C(rHov ? kAccent : kStroke), 5.f);
 	{
-		const char* rLbl = Localization::Tr("Re-attach");
+	const char* rLbl = Localization::Tr("Re-attach");
 		const float tw = TextW(font::inter_medium_small, rLbl);
 		dl->AddText(font::inter_medium_small, font::inter_medium_small->FontSize * 0.92f,
 			ImVec2((rBtn.Min.x + rBtn.Max.x - tw) * 0.5f, RowTextY(rBtn.Min.y, btnH, font::inter_medium_small)),
@@ -4034,7 +4041,8 @@ void DrawFooter(const ImVec2& pos, bool attached)
 	if (kW >= 820.f) {
 		const int mkIdx = ImClamp(ConfigInstance.Overlay.MenuKey, 0, (int)IM_ARRAYSIZE(kMenuKeyLabels) - 1);
 		char hintBuf[48];
-		std::snprintf(hintBuf, sizeof(hintBuf), "%s to close", kMenuKeyLabels[mkIdx]);
+		std::snprintf(hintBuf, sizeof(hintBuf), "%s %s", kMenuKeyLabels[mkIdx],
+			Localization::IsChinese() ? "关闭" : "to close");
 		TextRight(font::inter_medium_small, rightBound,
 			RowTextY(fy, kFooter, font::inter_medium_small), C(kTextFaint), hintBuf);
 		rightBound -= TextW(font::inter_medium_small, hintBuf) + 12.f;
@@ -4043,7 +4051,7 @@ void DrawFooter(const ImVec2& pos, bool attached)
 	// Center: FPS · ENT · activeConfig.json * (clipped safely between left & right bounds)
 	if (rightBound > leftBound + 40.f) {
 		char midBuf[128];
-		std::snprintf(midBuf, sizeof(midBuf), "%.0f FPS  |  %zu ENT  |  %s.json%s",
+		std::snprintf(midBuf, sizeof(midBuf), Localization::IsChinese() ? "%.0f 帧/秒  |  %zu 实体  |  %s.json%s" : "%.0f FPS  |  %zu ENT  |  %s.json%s",
 			ImGui::GetIO().Framerate,
 			snapshot ? snapshot->entities.size() : (size_t)0,
 			ConfigFile::GetActiveConfigName().c_str(),
@@ -4383,12 +4391,12 @@ void Draw(bool attached, const std::string& statusText)
 			{
 				ImGui::PushFont(font::inter_medium_widget);
 				ImGui::PushStyleColor(ImGuiCol_Text, C(kAccent));
-				ImGui::TextUnformatted("MEM WRITE WARNING");
+				ImGui::TextUnformatted(Localization::Tr("MEM WRITE WARNING"));
 				ImGui::PopStyleColor();
 
 				ImGui::PushStyleColor(ImGuiCol_Text, C(kText));
 				ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + modalW - 36.f);
-				ImGui::TextUnformatted("You're enabling the Mem Write Master Switch, do you wish to proceed?");
+				ImGui::TextUnformatted(Localization::Tr("You're enabling the Mem Write Master Switch, do you wish to proceed?"));
 				ImGui::PopTextWrapPos();
 				ImGui::PopStyleColor();
 				ImGui::PopFont();

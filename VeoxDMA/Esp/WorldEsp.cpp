@@ -527,8 +527,9 @@ void DrawWorldEntities()
 			// Rename "Bush" → "Weed" in display labels + optional hide
 			{
 				bool isBush = false;
-				for (std::size_t p = 0; (p = label.find("Bush", p)) != std::string::npos; p += 4) {
-					label.replace(p, 4, "Weed");
+				const char* weedName = Localization::IsChinese() ? "杂草" : "Weed";
+				for (std::size_t p = 0; (p = label.find("Bush", p)) != std::string::npos; p += std::strlen(weedName)) {
+					label.replace(p, 4, weedName);
 					isBush = true;
 				}
 				if (isBush && !lf.Enabled && !ConfigInstance.World.Weed)
@@ -742,7 +743,8 @@ void DrawHouseInfo()
 		std::string fuseStatus = allEmpty ? "No fuses" : "Fuses armed";
 		std::string doorStatus = Localization::IsChinese()
 			? "门：" + std::to_string(totalOpen) + "/" + std::to_string(totalDoors) + " 已打开"
-			: "Doors: " + std::to_string(totalOpen) + "/" + std::to_string(totalDoors) + " open";
+				: "Doors: " + std::to_string(totalOpen) + "/" + std::to_string(totalDoors) + " open";
+		doorStatus = Localization::TranslateRuntime(doorStatus);
 
 		Esp::DrawOutlinedText(dl, ImVec2(cursor.x + indent, cursor.y),
 			anyRaided ? IM_COL32(255, 80, 80, 255) : IM_COL32(200, 255, 200, 255),

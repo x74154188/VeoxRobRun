@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "WorldEsp.h"
 #include "ConfigInstance.h"
+#include "../Misc/Localization.h"
 #include "RobRunReader.h"
 #include "EspDraw.h"
 #include "IconSprites.h"
@@ -485,12 +486,13 @@ void DrawWorldEntities()
 		ImFont* useFont = font;
 		auto drawLine = [&](const std::string& text, ImU32 col) {
 			if (text.empty()) return;
+			const std::string displayText = Localization::TranslateRuntime(text);
 			ImVec2 size = useFont
-				? useFont->CalcTextSizeA(labelSize, FLT_MAX, 0.f, text.c_str())
-				: ImGui::CalcTextSize(text.c_str());
+				? useFont->CalcTextSizeA(labelSize, FLT_MAX, 0.f, displayText.c_str())
+				: ImGui::CalcTextSize(displayText.c_str());
 			Esp::DrawOutlinedText(dl,
 				ImVec2(screen.x - size.x * 0.5f, lineY),
-				col, useFont, labelSize, text.c_str());
+				col, useFont, labelSize, displayText.c_str());
 			lineY += size.y + 1.f;
 		};
 
@@ -619,6 +621,7 @@ static void DrawBuildingLine(ImDrawList* dl, ImVec2& cursor, float indent,
 
 	const ImU32 col = b.isRaided ? IM_COL32(255, 80, 80, 255) :
 		(b.isFusesEmpty ? IM_COL32(255, 200, 60, 255) : IM_COL32(200, 255, 200, 255));
+	line = Localization::TranslateRuntime(line);
 	Esp::DrawOutlinedText(dl, ImVec2(cursor.x + indent, cursor.y), col, font, fs, line.c_str());
 	cursor.y += fs + 2.f;
 }
@@ -706,7 +709,8 @@ void DrawHouseInfo()
 
 	// Header: slot / owner / distance
 	{
-		std::string header = "Slot " + std::to_string(best->slotIndex);
+		std::string header = Localization::IsChinese() ? "槽位 " : "Slot ";
+		header += std::to_string(best->slotIndex);
 		if (!ownerLabel.empty()) header += " | " + ownerLabel;
 		header += " [" + std::to_string(bestMetres) + "m]";
 		Esp::DrawOutlinedText(dl, cursor, IM_COL32(255, 255, 255, 255), font, fs + 2.f, header.c_str());
@@ -731,26 +735,28 @@ void DrawHouseInfo()
 		accum(best->compoundWall);
 		for (const auto& ob : best->outbuildings) accum(ob);
 
-		Esp::DrawOutlinedText(dl, cursor, IM_COL32(255, 160, 60, 255), font, fs, "DEFENCE");
+		Esp::DrawOutlinedText(dl, cursor, IM_COL32(255, 160, 60, 255), font, fs, Localization::Tr("DEFENCE"));
 		cursor.y += lineH;
 
 		std::string raidStatus = anyRaided ? "Raided" : "Not raided";
 		std::string fuseStatus = allEmpty ? "No fuses" : "Fuses armed";
-		std::string doorStatus = "Doors: " + std::to_string(totalOpen) + "/" + std::to_string(totalDoors) + " open";
+		std::string doorStatus = Localization::IsChinese()
+			? "门：" + std::to_string(totalOpen) + "/" + std::to_string(totalDoors) + " 已打开"
+			: "Doors: " + std::to_string(totalOpen) + "/" + std::to_string(totalDoors) + " open";
 
 		Esp::DrawOutlinedText(dl, ImVec2(cursor.x + indent, cursor.y),
 			anyRaided ? IM_COL32(255, 80, 80, 255) : IM_COL32(200, 255, 200, 255),
-			font, fs, raidStatus.c_str());
+			font, fs, Localization::Tr(raidStatus.c_str()));
 		cursor.y += lineH;
 
 		Esp::DrawOutlinedText(dl, ImVec2(cursor.x + indent, cursor.y),
 			allEmpty ? IM_COL32(255, 200, 60, 255) : IM_COL32(200, 255, 200, 255),
-			font, fs, fuseStatus.c_str());
+			font, fs, Localization::Tr(fuseStatus.c_str()));
 		cursor.y += lineH;
 
 		if (best->mainBuilding.hasDefense && best->mainBuilding.raidLockTs > 0) {
 			Esp::DrawOutlinedText(dl, ImVec2(cursor.x + indent, cursor.y),
-				IM_COL32(255, 120, 120, 255), font, fs, "Raid locked");
+				IM_COL32(255, 120, 120, 255), font, fs, Localization::Tr("Raid locked"));
 			cursor.y += lineH;
 		}
 
@@ -761,7 +767,7 @@ void DrawHouseInfo()
 
 	// BUILDINGS
 	{
-		Esp::DrawOutlinedText(dl, cursor, IM_COL32(100, 200, 255, 255), font, fs, "BUILDINGS");
+		Esp::DrawOutlinedText(dl, cursor, IM_COL32(100, 200, 255, 255), font, fs, Localization::Tr("BUILDINGS"));
 		cursor.y += lineH;
 
 		DrawBuildingLine(dl, cursor, indent, best->mainBuilding, font, fs);

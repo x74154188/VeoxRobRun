@@ -1,6 +1,7 @@
 ﻿#include "pch.h"
 #include "PlayerEsp.h"
 #include "ConfigInstance.h"
+#include "../Misc/Localization.h"
 #include "RobRunReader.h"
 #include "RobRunMemory.h"
 #include "EspDraw.h"
@@ -828,13 +829,14 @@ void DrawPlayers()
 
 		auto drawSegLine = [&](const std::vector<TextSeg>& segs, float y) {
 			segFull.clear();
-			for (const auto& s : segs) segFull += s.text;
+			for (const auto& s : segs) segFull += Localization::TranslateRuntime(s.text);
 			if (segFull.empty()) return y;
 			ImVec2 fullSize = MeasureText(segFull.c_str(), fontSize);
 			float cx = textX - fullSize.x * 0.5f;
 			for (const auto& s : segs) {
-				ImVec2 sz = MeasureText(s.text.c_str(), fontSize);
-				Esp::DrawOutlinedText(dl, ImVec2(cx, y), s.col, font, fontSize, s.text.c_str());
+				const std::string displayText = Localization::TranslateRuntime(s.text);
+				ImVec2 sz = MeasureText(displayText.c_str(), fontSize);
+				Esp::DrawOutlinedText(dl, ImVec2(cx, y), s.col, font, fontSize, displayText.c_str());
 				cx += sz.x;
 			}
 			return y + fullSize.y;
@@ -1042,7 +1044,7 @@ void DrawPlayers()
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 2.f);
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 6.f);
 
-		ImGui::Begin("Looking Alert", nullptr,
+		ImGui::Begin(Localization::Tr("Looking Alert"), nullptr,
 			ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize |
 			ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
 
@@ -1061,7 +1063,7 @@ void DrawPlayers()
 		const float alertFontSize = ImGui::GetFontSize();
 		for (const auto& name : lookingNames)
 		{
-			std::string line = name + " is looking at you!";
+			std::string line = Localization::TranslateRuntime(name + " is looking at you!");
 			const ImVec2 pos = ImGui::GetCursorScreenPos();
 			const ImVec2 sz = alertFont->CalcTextSizeA(alertFontSize, FLT_MAX, 0.f, line.c_str());
 			Esp::DrawOutlinedText(alertDl, pos, alertCol, alertFont, alertFontSize, line.c_str());
@@ -1107,15 +1109,15 @@ void DrawPlayers()
 			ImGui::Dummy(sz);
 		};
 
-		drawHudLine(IM_COL32(255, 214, 76, 255), "COINS : $%d", inv.coins);
+			drawHudLine(IM_COL32(255, 214, 76, 255), Localization::Tr("COINS : $%d"), inv.coins);
 		if (inv.cryptoCoins > 0)
-			drawHudLine(IM_COL32(115, 224, 255, 255), "CRYPTO : %d", inv.cryptoCoins);
+			drawHudLine(IM_COL32(115, 224, 255, 255), Localization::Tr("CRYPTO : %d"), inv.cryptoCoins);
 		drawHudLine(IM_COL32(153, 245, 166, 255),
-			"BAG VALUE : $%d (Cash $%d / Items $%d)",
+			Localization::Tr("BAG VALUE : $%d (Cash $%d / Items $%d)"),
 			inv.inventoryTotalValue, inv.inventoryCashValue, inv.inventoryItemsValue);
 		if (inv.equipValue > 0 || inv.vehicleTotalValue > 0)
 			drawHudLine(IM_COL32(191, 209, 235, 255),
-				"EQUIP : $%d  |  VEH : $%d", inv.equipValue, inv.vehicleTotalValue);
+				Localization::Tr("EQUIP : $%d  |  VEH : $%d"), inv.equipValue, inv.vehicleTotalValue);
 
 		ImGui::End();
 		ImGui::PopStyleVar(3);

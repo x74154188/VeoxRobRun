@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "OverlayNotify.h"
 #include "ConfigInstance.h"
+#include "../Misc/Localization.h"
 #include "Overlay.h"
 #include "Esp/EspDraw.h"
 #include "ImGUI/imgui.h"
@@ -62,7 +63,7 @@ void OverlayNotify::Draw()
 		float maxW = 0.f;
 		for (int i = 0; i < count; ++i)
 		{
-			const float w = ImGui::CalcTextSize(entries[i].label).x;
+			const float w = ImGui::CalcTextSize(Localization::Tr(entries[i].label)).x;
 			if (w > maxW) maxW = w;
 		}
 		const float winW = pad + dotR * 2.f + 8.f + maxW + pad;
@@ -98,7 +99,7 @@ void OverlayNotify::Draw()
 			const ImU32 col = entries[i].enabled ? kAccent : kTextDim;
 			dl->AddCircleFilled(ImVec2(cursor.x + dotR, y), dotR, col);
 			Esp::DrawOutlinedText(dl, ImVec2(cursor.x + dotR * 2.f + 8.f, y - lineH * 0.5f),
-				entries[i].enabled ? kText : kTextDim, statusFont, statusFontSize, entries[i].label);
+				entries[i].enabled ? kText : kTextDim, statusFont, statusFontSize, Localization::Tr(entries[i].label));
 		}
 
 		ImGui::End();
@@ -117,7 +118,7 @@ void OverlayNotify::Draw()
 			g_notifyText.clear();
 			return;
 		}
-		text = g_notifyText;
+		text = Localization::TranslateRuntime(g_notifyText);
 		color = g_notifyColor;
 	}
 	ImDrawList* dl = ImGui::GetBackgroundDrawList();

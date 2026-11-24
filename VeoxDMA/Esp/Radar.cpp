@@ -4,6 +4,7 @@
 #include "EspDraw.h"
 #include "IconSprites.h"
 #include "ConfigInstance.h"
+#include "../Misc/Localization.h"
 #include "RobRunReader.h"
 #include "RobRunMemory.h"
 #include "../Overlay/Overlay.h"
@@ -345,15 +346,15 @@ RoleMarker GetRoleMarker(int role, const std::string& roleName)
 	const std::string label = RobRunReader::RoleLabel(role, roleName);
 
 	if (label == "Criminal")
-		return { "C", Esp::D2DColorToImU32(pcfg.CriminalColour) };
+		return { Localization::IsChinese() ? "罪" : "C", Esp::D2DColorToImU32(pcfg.CriminalColour) };
 	if (label == "Police Officer")
-		return { "P", Esp::D2DColorToImU32(pcfg.PoliceColour) };
+		return { Localization::IsChinese() ? "警" : "P", Esp::D2DColorToImU32(pcfg.PoliceColour) };
 	if (label == "Civilian")
-		return { "CI", Esp::D2DColorToImU32(pcfg.CivilianColour) };
+		return { Localization::IsChinese() ? "民" : "CI", Esp::D2DColorToImU32(pcfg.CivilianColour) };
 	if (label == "Hubber")
-		return { "CI", Esp::D2DColorToImU32(pcfg.HubberColour) };
+		return { Localization::IsChinese() ? "民" : "CI", Esp::D2DColorToImU32(pcfg.HubberColour) };
 
-	return { "CI", IM_COL32(220, 220, 100, 255) };
+	return { Localization::IsChinese() ? "民" : "CI", IM_COL32(220, 220, 100, 255) };
 }
 
 } // namespace
@@ -687,7 +688,7 @@ void Draw()
 	ImGui::PushStyleColor(ImGuiCol_TitleBg, IM_COL32(18, 20, 30, titleAlpha));
 	ImGui::PushStyleColor(ImGuiCol_TitleBgActive, IM_COL32(30, 120, 255, titleActiveAlpha));
 
-	if (!ImGui::Begin("Radar", &ConfigInstance.Radar.Enabled,
+	if (!ImGui::Begin(Localization::Tr("Radar"), &ConfigInstance.Radar.Enabled,
 		ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse |
 		ImGuiWindowFlags_NoCollapse))
 	{
@@ -1056,7 +1057,7 @@ void DrawFullMap()
 	ImGui::PushStyleColor(ImGuiCol_TitleBg, IM_COL32(16, 18, 28, 240));
 	ImGui::PushStyleColor(ImGuiCol_TitleBgActive, IM_COL32(25, 60, 120, 240));
 
-	if (!ImGui::Begin("Full Map", &ConfigInstance.Radar.PopoutWindow,
+	if (!ImGui::Begin(Localization::Tr("Full Map"), &ConfigInstance.Radar.PopoutWindow,
 		ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse |
 		ImGuiWindowFlags_NoCollapse))
 	{
@@ -1143,9 +1144,10 @@ void DrawFullMap()
 					continue;
 				dl->AddCircleFilled(sp, 4.f, IM_COL32(120, 190, 255, 220));
 				if (cfg.ShowLootNames && !ent.label.empty()) {
-					ImVec2 ts = ImGui::CalcTextSize(ent.label.c_str());
+					const std::string displayLabel = Localization::TranslateRuntime(ent.label);
+					ImVec2 ts = ImGui::CalcTextSize(displayLabel.c_str());
 					dl->AddText(ImVec2(sp.x - ts.x * 0.5f, sp.y + 5.f),
-						IM_COL32(220, 220, 220, 180), ent.label.c_str());
+						IM_COL32(220, 220, 220, 180), displayLabel.c_str());
 				}
 				continue;
 			}
@@ -1189,11 +1191,12 @@ void DrawFullMap()
 					(ConfigInstance.LootFilter.Enabled || cfg.ShowLootNames);
 
 				if (showLabel) {
-					ImVec2 ts = ImGui::CalcTextSize(lootInfo.text.c_str());
+					const std::string displayText = Localization::TranslateRuntime(lootInfo.text);
+					ImVec2 ts = ImGui::CalcTextSize(displayText.c_str());
 					ImVec2 tp(sp.x - ts.x * 0.5f, sp.y + markerPx + 1.f);
-					dl->AddText(ImVec2(tp.x + 1.f, tp.y + 1.f), IM_COL32(0, 0, 0, 240), lootInfo.text.c_str());
-					dl->AddText(ImVec2(tp.x - 1.f, tp.y - 1.f), IM_COL32(0, 0, 0, 240), lootInfo.text.c_str());
-					dl->AddText(tp, lootInfo.textColour, lootInfo.text.c_str());
+					dl->AddText(ImVec2(tp.x + 1.f, tp.y + 1.f), IM_COL32(0, 0, 0, 240), displayText.c_str());
+					dl->AddText(ImVec2(tp.x - 1.f, tp.y - 1.f), IM_COL32(0, 0, 0, 240), displayText.c_str());
+					dl->AddText(tp, lootInfo.textColour, displayText.c_str());
 				}
 			}
 		}
@@ -1219,7 +1222,7 @@ void DrawFullMap()
 			dl->AddCircleFilled(sp, r, IM_COL32(10, 12, 16, 220));
 			dl->AddCircle(sp, r, badgeCol, 0, 1.5f);
 
-			const char* txt = isLocal ? "ME" : marker.text;
+			const char* txt = isLocal ? (Localization::IsChinese() ? "我" : "ME") : marker.text;
 			ImVec2 ts = ImGui::CalcTextSize(txt);
 			ImVec2 tp(sp.x - ts.x * 0.5f, sp.y - ts.y * 0.5f);
 			dl->AddText(ImVec2(tp.x + 1.f, tp.y + 1.f), IM_COL32(0, 0, 0, 255), txt);

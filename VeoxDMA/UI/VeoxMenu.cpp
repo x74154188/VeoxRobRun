@@ -33,6 +33,7 @@ static std::wstring PickConfigPath(bool save)
 #include "../Overlay/Overlay.h"
 #include "../Esp/Radar.h"
 #include "../Esp/WebRadar.h"
+#include "../Misc/Localization.h"
 #include "../Esp/IconSprites.h"
 #include "../Overlay/Backdrop.h"
 #include "imgui_internal.h"
@@ -116,7 +117,7 @@ ImVec4 g_lastAccent = ImVec4(-1.f, -1.f, -1.f, -1.f);
 
 // ---- selectable fonts -----------------------------------------------------
 struct FontEntry { const char* name; ImFont* ptr; };
-constexpr int kFontCount = 7;
+constexpr int kFontCount = 8;
 FontEntry g_fonts[kFontCount] = {
 	{ "Maven Pro",  nullptr },
 	{ "Atkinson",   nullptr },
@@ -125,12 +126,15 @@ FontEntry g_fonts[kFontCount] = {
 	{ "Consolas",   nullptr },
 	{ "Tahoma",     nullptr },
 	{ "Verdana",    nullptr },
+	{ "SimHei",     nullptr },
 };
 int g_fontIndex = 0;
 
 static void ApplySelectedFont()
 {
-	if (g_fonts[g_fontIndex].ptr)
+	if (Localization::IsChinese() && g_fonts[7].ptr)
+		ImGui::GetIO().FontDefault = g_fonts[7].ptr;
+	else if (g_fonts[g_fontIndex].ptr)
 		ImGui::GetIO().FontDefault = g_fonts[g_fontIndex].ptr;
 	ConfigInstance.Overlay.FontName = g_fonts[g_fontIndex].name;
 }
@@ -394,7 +398,7 @@ inline float TextW(ImFont* font, const char* s)
 inline void Text(ImFont* font, const ImVec2& p, ImU32 col, const char* s)
 {
 	if (!font || !s || !*s) return;
-	ImGui::GetWindowDrawList()->AddText(font, font->FontSize, p, col, s);
+	ImGui::GetWindowDrawList()->AddText(font, font->FontSize, p, col, Localization::Tr(s));
 }
 
 inline void TextRight(ImFont* font, float right, float y, ImU32 col, const char* s)
@@ -657,13 +661,14 @@ void Note(const char* fmt, ...)
 	char buf[512];
 	va_list args;
 	va_start(args, fmt);
-	std::vsnprintf(buf, sizeof(buf), fmt, args);
+	std::vsnprintf(buf, sizeof(buf), Localization::Tr(fmt), args);
 	va_end(args);
+	const std::string translated = Localization::TranslateRuntime(buf);
 
 	ImGui::PushFont(font::inter_medium_small);
 	ImGui::PushStyleColor(ImGuiCol_Text, C(kTextDim));
 	ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x);
-	ImGui::TextWrapped("%s", buf);
+	ImGui::TextWrapped("%s", translated.c_str());
 	ImGui::PopTextWrapPos();
 	ImGui::PopStyleColor();
 	ImGui::PopFont();
@@ -672,14 +677,15 @@ void Note(const char* fmt, ...)
 void SectionLabel(const char* text)
 {
 	if (!text || !*text) return;
+	const char* display = Localization::Tr(text);
 	ImGuiWindow* window = ImGui::GetCurrentWindow();
 	const ImVec2 p = window->DC.CursorPos;
 	const float w = ImGui::GetContentRegionAvail().x;
 	const float y = p.y + 3.f;
 
 	window->DrawList->AddText(font::inter_medium_small, font::inter_medium_small->FontSize * 0.92f,
-		ImVec2(p.x, y), C(kTextFaint), text);
-	const float lineX = p.x + TextW(font::inter_medium_small, text) * 0.92f + 8.f;
+		ImVec2(p.x, y), C(kTextFaint), display);
+	const float lineX = p.x + TextW(font::inter_medium_small, display) * 0.92f + 8.f;
 	if (lineX < p.x + w - 4.f)
 		window->DrawList->AddLine(ImVec2(lineX, y + 6.f), ImVec2(p.x + w, y + 6.f), C(kStrokeSoft), 1.f);
 
@@ -708,6 +714,7 @@ void BeginCard(const char* title, IconKind icon, float width, float fixedHeight 
 
 	const char* titleEnd = ImGui::FindRenderedTextEnd(title);
 	std::string displayTitle(title, titleEnd);
+	displayTitle = Localization::Tr(displayTitle.c_str());
 	Text(font::inter_medium_widget,
 		ImVec2(bb.Min.x + 34.f, bb.Min.y + (kCardHeader - font::inter_medium_widget->FontSize) * 0.5f),
 		C(kText), displayTitle.c_str());
@@ -886,7 +893,7 @@ bool ToggleRow(const char* label, bool* v, bool memoryWrite = false, bool tracks
 			ImGui::PushStyleColor(ImGuiCol_Border, C(kStroke));
 			ImGui::PushStyleColor(ImGuiCol_Text, C(kTextMid));
 			ImGui::BeginTooltip();
-			ImGui::TextUnformatted("Locked - enable Mem Write Master Switch first.");
+			ImGui::TextUnformatted(Localization::Tr("Locked - enable Mem Write Master Switch first."));
 			ImGui::EndTooltip();
 			ImGui::PopStyleColor(3);
 		}
@@ -929,7 +936,7 @@ bool ToggleRow(const char* label, bool* v, bool memoryWrite = false, bool tracks
 		: C(Mix(kTextMid, kText, ImMax(t, hov ? 0.6f : 0.f)));
 	dl->AddText(font::inter_medium_widget, font::inter_medium_widget->FontSize,
 		ImVec2(p.x, RowTextY(p.y, kRow, font::inter_medium_widget)),
-		labelCol, label, dispEnd);
+		labelCol, Localization::Tr(label));
 
 	constexpr float tw = 32.f, th = 17.f;
 	const ImRect track(ImVec2(p.x + w - tw, p.y + (kRow - th) * 0.5f),
@@ -987,7 +994,7 @@ bool ColorToggleRow(const char* label, bool* v, D2D1::ColorF& colour)
 	const char* dispEnd = ImGui::FindRenderedTextEnd(label);
 	dl->AddText(font::inter_medium_widget, font::inter_medium_widget->FontSize,
 		ImVec2(p.x, RowTextY(p.y, kRow, font::inter_medium_widget)),
-		C(Mix(kTextMid, kText, ImMax(t, hov ? 0.6f : 0.f))), label, dispEnd);
+		C(Mix(kTextMid, kText, ImMax(t, hov ? 0.6f : 0.f))), Localization::Tr(label));
 
 	DrawPillSwitch(dl, track, t);
 
@@ -1025,7 +1032,7 @@ bool ColorRow(const char* label, D2D1::ColorF& colour)
 	const char* dispEnd = ImGui::FindRenderedTextEnd(label);
 	dl->AddText(font::inter_medium_widget, font::inter_medium_widget->FontSize,
 		ImVec2(p.x, RowTextY(p.y, kRow, font::inter_medium_widget)),
-		C(Mix(kTextMid, kText, hov ? 0.6f : 0.f)), label, dispEnd);
+		C(Mix(kTextMid, kText, hov ? 0.6f : 0.f)), Localization::Tr(label));
 	dl->AddRectFilled(swatch.Min, swatch.Max, C(ImVec4(colour.r, colour.g, colour.b, 1.f)), 3.f);
 	dl->AddRect(swatch.Min, swatch.Max, hov ? C(kText) : C(ImVec4(1, 1, 1, 0.18f)), 3.f);
 
@@ -1079,7 +1086,7 @@ bool SliderIntRow(const char* label, int* v, int lo, int hi, const char* suffix 
 	const char* dispEnd = ImGui::FindRenderedTextEnd(label);
 	dl->AddText(font::inter_medium_widget, font::inter_medium_widget->FontSize,
 		ImVec2(p.x, RowTextY(p.y, kRow, font::inter_medium_widget)),
-		C(Mix(kTextMid, kText, hov || held ? 0.65f : 0.f)), label, dispEnd);
+		C(Mix(kTextMid, kText, hov || held ? 0.65f : 0.f)), Localization::Tr(label));
 
 	char buf[64];
 	if (zeroText && *v <= lo)
@@ -1197,7 +1204,7 @@ bool SliderFloatRow(const char* label, float* v, float lo, float hi, const char*
 	const char* dispEnd = ImGui::FindRenderedTextEnd(label);
 	dl->AddText(font::inter_medium_widget, font::inter_medium_widget->FontSize,
 		ImVec2(p.x, RowTextY(p.y, kRow, font::inter_medium_widget)),
-		C(Mix(kTextMid, kText, hov || held ? 0.65f : 0.f)), label, dispEnd);
+		C(Mix(kTextMid, kText, hov || held ? 0.65f : 0.f)), Localization::Tr(label));
 
 	char buf[64];
 	if (zeroText && *v <= lo + 0.0001f)
@@ -1292,6 +1299,7 @@ bool ComboRow(const char* label, int* current, const char* const* items, int cou
 
 	const char* dispEnd = ImGui::FindRenderedTextEnd(label);
 	std::string dispLabel(label, dispEnd);
+	dispLabel = Localization::Tr(dispLabel.c_str());
 	const float labelW = TextW(font::inter_medium_widget, dispLabel.c_str());
 	const float fw = ImClamp(fieldW, 88.f, ImMax(88.f, w - labelW - (memoryWrite ? 78.f : 14.f)));
 	const ImRect field(ImVec2(p.x + w - fw, p.y + 1.f), ImVec2(p.x + w, p.y + rowH - 1.f));
@@ -1304,7 +1312,7 @@ bool ComboRow(const char* label, int* current, const char* const* items, int cou
 			ImGui::PushStyleColor(ImGuiCol_Border, C(kStroke));
 			ImGui::PushStyleColor(ImGuiCol_Text, C(kTextMid));
 			ImGui::BeginTooltip();
-			ImGui::TextUnformatted("Locked - enable Mem Write Master Switch first.");
+			ImGui::TextUnformatted(Localization::Tr("Locked - enable Mem Write Master Switch first."));
 			ImGui::EndTooltip();
 			ImGui::PopStyleColor(3);
 		}
@@ -1333,7 +1341,7 @@ bool ComboRow(const char* label, int* current, const char* const* items, int cou
 			locked || !ConfigInstance.Overlay.MemWriteMaster);
 
 	int sel = ImClamp(*current, 0, count - 1);
-	const char* preview = items[sel] ? items[sel] : "-";
+	const char* preview = Localization::Tr(items[sel] ? items[sel] : "-");
 	dl->PushClipRect(field.Min, ImVec2(field.Max.x - 20.f, field.Max.y), true);
 	dl->AddText(font::inter_medium_small, font::inter_medium_small->FontSize,
 		ImVec2(field.Min.x + 9.f, RowTextY(field.Min.y, field.GetHeight(), font::inter_medium_small)),
@@ -1360,7 +1368,7 @@ bool ComboRow(const char* label, int* current, const char* const* items, int cou
 		for (int i = 0; i < count; i++)
 		{
 			ImGui::PushID(i);
-			if (ImGui::Selectable(items[i] ? items[i] : "-", i == sel))
+			if (ImGui::Selectable(Localization::Tr(items[i] ? items[i] : "-"), i == sel))
 			{
 				if (*current != i && tracksDirty) g_dirty = true;
 				*current = i;
@@ -1406,6 +1414,7 @@ bool InlineButton(const char* text, float width, bool accent = false, bool dange
 
 	const char* dispEnd = ImGui::FindRenderedTextEnd(text);
 	std::string disp(text, dispEnd);
+	disp = Localization::Tr(disp.c_str());
 	const float tw = TextW(font::inter_medium_small, disp.c_str());
 	dl->AddText(font::inter_medium_small, font::inter_medium_small->FontSize,
 		ImVec2((bb.Min.x + bb.Max.x - tw) * 0.5f, RowTextY(bb.Min.y, h, font::inter_medium_small)),
@@ -1448,6 +1457,7 @@ bool ButtonRow(const char* label, const char* text, float width = 130.f, bool ac
 
 	const char* dispEnd = ImGui::FindRenderedTextEnd(text);
 	std::string disp(text, dispEnd);
+	disp = Localization::Tr(disp.c_str());
 	const float tw = TextW(font::inter_medium_small, disp.c_str());
 	dl->AddText(font::inter_medium_small, font::inter_medium_small->FontSize,
 		ImVec2((button.Min.x + button.Max.x - tw) * 0.5f,
@@ -1475,7 +1485,7 @@ bool PopupToggleRow(const char* label, bool* v, float width = 200.f)
 	ImDrawList* dl = window->DrawList;
 	dl->AddText(font::inter_medium_small, font::inter_medium_small->FontSize,
 		ImVec2(p.x, RowTextY(p.y, kRow, font::inter_medium_small)),
-		C(*v || hov ? kText : kTextMid), label);
+		C(*v || hov ? kText : kTextMid), Localization::Tr(label));
 
 	constexpr float tw = 30.f, th = 16.f;
 	const ImRect track(ImVec2(p.x + width - tw, p.y + (kRow - th) * 0.5f),
@@ -3431,6 +3441,7 @@ void DrawSettingsOverlay()
 		SectionLabel("HUD & Performance");
 		ToggleRow("Show FPS", &ConfigInstance.Overlay.FPSEnabled);
 		ToggleRow("Status Panel", &ConfigInstance.Overlay.StatusPanel);
+		ToggleRow("Chinese Language", &ConfigInstance.Overlay.ChineseLanguage);
 		{
 			static const char* fontNames[kFontCount];
 			for (int i = 0; i < kFontCount; i++) fontNames[i] = g_fonts[i].name;
@@ -3717,7 +3728,8 @@ void DrawTopBar(const ImVec2& pos, ImRect& outTabsRect, ImRect& outSearchRect, I
 	const float tabsStartX = tx;
 	for (int i = 0; i < kTabCount; ++i)
 	{
-		const float lw = TextW(font::inter_medium_widget, kTabNames[i]);
+		const char* tabLabel = Localization::Tr(kTabNames[i]);
+		const float lw = TextW(font::inter_medium_widget, tabLabel);
 		const float bw = 11.f + 15.f + 7.f + lw + 11.f;
 		const ImRect bb(ImVec2(tx, ty), ImVec2(tx + bw, ty + 34.f));
 
@@ -3741,7 +3753,7 @@ void DrawTopBar(const ImVec2& pos, ImRect& outTabsRect, ImRect& outSearchRect, I
 		DrawVectorIcon(dl, kTabIcons[i], ImVec2(bb.Min.x + 17.f, (bb.Min.y + bb.Max.y) * 0.5f), 6.f, icCol);
 		dl->AddText(font::inter_medium_widget, font::inter_medium_widget->FontSize,
 			ImVec2(bb.Min.x + 31.f, RowTextY(bb.Min.y, 34.f, font::inter_medium_widget)),
-			txCol, kTabNames[i]);
+			txCol, tabLabel);
 
 		tx += bw + 6.f;
 	}
@@ -3932,7 +3944,8 @@ void DrawSubBar(const ImVec2& pos)
 
 	for (int i = 0; i < count; ++i)
 	{
-		const float lw = TextW(font::inter_medium_small, subs[i].name);
+		const char* subLabel = Localization::Tr(subs[i].name);
+		const float lw = TextW(font::inter_medium_small, subLabel);
 		const float bw = 11.f + 13.f + 7.f + lw + 12.f;
 		const ImRect bb(ImVec2(sx, sy), ImVec2(sx + bw, sy + 30.f));
 
@@ -3953,7 +3966,7 @@ void DrawSubBar(const ImVec2& pos)
 		DrawVectorIcon(dl, subs[i].icon, ImVec2(bb.Min.x + 16.f, (bb.Min.y + bb.Max.y) * 0.5f), 5.2f, icCol);
 		dl->AddText(font::inter_medium_small, font::inter_medium_small->FontSize,
 			ImVec2(bb.Min.x + 29.f, RowTextY(bb.Min.y, 30.f, font::inter_medium_small)),
-			txCol, subs[i].name);
+			txCol, subLabel);
 
 		sx += bw + 6.f;
 	}
@@ -3975,6 +3988,7 @@ void DrawFooter(const ImVec2& pos, bool attached)
 	const char* stLabel = !dmaReady ? "DMA Offline"
 		: (!attached ? "Waiting for Game"
 		: (hasLiveSnap ? "In Match" : "Attached (Menu)"));
+	stLabel = Localization::Tr(stLabel);
 
 	// Left: Connection-state pill + PID
 	const float pillW = 24.f + TextW(font::inter_medium_small, stLabel) + 8.f;
@@ -4008,7 +4022,7 @@ void DrawFooter(const ImVec2& pos, bool attached)
 	dl->AddRectFilled(rBtn.Min, rBtn.Max, C(rHov ? kElevated : kCard), 5.f);
 	dl->AddRect(rBtn.Min, rBtn.Max, C(rHov ? kAccent : kStroke), 5.f);
 	{
-		const char* rLbl = "Re-attach";
+		const char* rLbl = Localization::Tr("Re-attach");
 		const float tw = TextW(font::inter_medium_small, rLbl);
 		dl->AddText(font::inter_medium_small, font::inter_medium_small->FontSize * 0.92f,
 			ImVec2((rBtn.Min.x + rBtn.Max.x - tw) * 0.5f, RowTextY(rBtn.Min.y, btnH, font::inter_medium_small)),
@@ -4095,14 +4109,27 @@ void Init()
 	ImGuiIO& io = ImGui::GetIO();
 
 	static ImWchar glyphRanges[] = { 0x0020, 0x00FF, 0x2000, 0x206F, 0xE000, 0xF8FF, 0 };
+	const ImWchar* chineseRanges = io.Fonts->GetGlyphRangesChineseSimplifiedCommon();
 
 	ImFontConfig cfg;
 	cfg.FontDataOwnedByAtlas = false;
+	ImFontConfig mergeCfg{};
+	mergeCfg.MergeMode = true;
+	mergeCfg.FontDataOwnedByAtlas = true;
+	const bool haveChineseFont = std::filesystem::exists("C:\\Windows\\Fonts\\simhei.ttf");
+	auto mergeChineseGlyphs = [&]() {
+		if (haveChineseFont)
+			io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\simhei.ttf", 14.5f, &mergeCfg, chineseRanges);
+	};
 
 	font::inter_medium_widget = io.Fonts->AddFontFromMemoryTTF(inter_medium, sizeof(inter_medium), 14.5f, &cfg, glyphRanges);
+	mergeChineseGlyphs();
 	font::inter_medium_small = io.Fonts->AddFontFromMemoryTTF(inter_medium, sizeof(inter_medium), 12.5f, &cfg, glyphRanges);
+	mergeChineseGlyphs();
 	font::inter_medium_big = io.Fonts->AddFontFromMemoryTTF(inter_bold, sizeof(inter_bold), 21.f, &cfg, glyphRanges);
+	mergeChineseGlyphs();
 	font::inter_bold = io.Fonts->AddFontFromMemoryTTF(inter_bold, sizeof(inter_bold), 15.f, &cfg, glyphRanges);
+	mergeChineseGlyphs();
 	font::icomoon = io.Fonts->AddFontFromMemoryTTF(icomoon, sizeof(icomoon), 17.f, &cfg, glyphRanges);
 	font::icomoon_default = io.Fonts->AddFontFromMemoryTTF(icomoon, sizeof(icomoon), 20.f, &cfg, glyphRanges);
 
@@ -4121,10 +4148,12 @@ void Init()
 			{ 4, "C:\\Windows\\Fonts\\consola.ttf" },
 			{ 5, "C:\\Windows\\Fonts\\tahoma.ttf" },
 			{ 6, "C:\\Windows\\Fonts\\verdana.ttf" },
+			{ 7, "C:\\Windows\\Fonts\\simhei.ttf" },
 		};
 		for (auto& f : fontFiles) {
 			if (std::filesystem::exists(f.path))
-				g_fonts[f.idx].ptr = io.Fonts->AddFontFromFileTTF(f.path.c_str(), 14.5f, nullptr, glyphRanges);
+				g_fonts[f.idx].ptr = io.Fonts->AddFontFromFileTTF(f.path.c_str(), 14.5f, nullptr,
+					f.idx == 7 ? chineseRanges : glyphRanges);
 		}
 		SyncFontFromConfig();
 	}
@@ -4156,6 +4185,11 @@ void Init()
 void Draw(bool attached, const std::string& statusText)
 {
 	ImGuiIO& io = ImGui::GetIO();
+	static bool lastChinese = false;
+	if (lastChinese != Localization::IsChinese()) {
+		lastChinese = Localization::IsChinese();
+		ApplySelectedFont();
+	}
 
 	if (g_flashTimer > 0.f) {
 		g_flashTimer = ImMax(0.f, g_flashTimer - io.DeltaTime);

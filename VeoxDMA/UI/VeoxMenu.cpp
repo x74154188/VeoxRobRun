@@ -1086,13 +1086,14 @@ bool SliderIntRow(const char* label, int* v, int lo, int hi, const char* suffix 
 	MaybeFlashRow(dl, bb, label);
 
 	const char* dispEnd = ImGui::FindRenderedTextEnd(label);
+	const std::string dispLabel(label, dispEnd);
 	dl->AddText(font::inter_medium_widget, font::inter_medium_widget->FontSize,
 		ImVec2(p.x, RowTextY(p.y, kRow, font::inter_medium_widget)),
-		C(Mix(kTextMid, kText, hov || held ? 0.65f : 0.f)), Localization::Tr(label));
+		C(Mix(kTextMid, kText, hov || held ? 0.65f : 0.f)), Localization::Tr(dispLabel.c_str()));
 
 	char buf[64];
 	if (zeroText && *v <= lo)
-		std::snprintf(buf, sizeof(buf), "%s", zeroText);
+		std::snprintf(buf, sizeof(buf), "%s", Localization::Tr(zeroText));
 	else
 		std::snprintf(buf, sizeof(buf), "%d%s", *v, suffix);
 
@@ -1204,13 +1205,14 @@ bool SliderFloatRow(const char* label, float* v, float lo, float hi, const char*
 	MaybeFlashRow(dl, bb, label);
 
 	const char* dispEnd = ImGui::FindRenderedTextEnd(label);
+	const std::string dispLabel(label, dispEnd);
 	dl->AddText(font::inter_medium_widget, font::inter_medium_widget->FontSize,
 		ImVec2(p.x, RowTextY(p.y, kRow, font::inter_medium_widget)),
-		C(Mix(kTextMid, kText, hov || held ? 0.65f : 0.f)), Localization::Tr(label));
+		C(Mix(kTextMid, kText, hov || held ? 0.65f : 0.f)), Localization::Tr(dispLabel.c_str()));
 
 	char buf[64];
 	if (zeroText && *v <= lo + 0.0001f)
-		std::snprintf(buf, sizeof(buf), "%s", zeroText);
+		std::snprintf(buf, sizeof(buf), "%s", Localization::Tr(zeroText));
 	else
 		std::snprintf(buf, sizeof(buf), "%.2f%s", *v, suffix);
 

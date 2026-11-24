@@ -19,7 +19,7 @@ inline const char* Tr(const char* text)
 		{"Weapon", "武器"}, {"Weapons", "武器"}, {"Player", "玩家"}, {"Players", "玩家"}, {"Vehicle", "载具"}, {"Vehicles", "载具"}, {"Police", "警察"}, {"Police Officer", "警察"}, {"Criminal", "罪犯"}, {"Civilian", "平民"}, {"Hubber", "居民"},
 		{"Head", "头部"}, {"Neck", "颈部"}, {"Chest", "胸部"}, {"Pelvis", "骨盆"}, {"Closest", "最近"}, {"Head & Body", "头部与身体"}, {"Crosshair FOV", "准星视野"}, {"3D Distance", "三维距离"}, {"Lowest Health", "最低生命值"}, {"Hardware Aim", "硬件瞄准"}, {"Memory Aim", "内存瞄准"}, {"Linear", "线性"}, {"Bezier", "贝塞尔"},
 		{"Target", "目标"}, {"Bone", "骨骼"}, {"Key", "按键"}, {"Aim Deadzone", "瞄准死区"}, {"Random Offset", "随机偏移"}, {"Soft Entry & Falloff", "平滑进入与衰减"}, {"Profile Bone", "方案骨骼"}, {"Profile Curve", "方案曲线"}, {"Profile Trigger", "方案扳机"}, {"Allow Trigger", "允许扳机"}, {"Override Active", "启用覆盖"}, {"Reset Profile", "重置方案"}, {"Reset To Native", "恢复原生设置"},
-		{"Dot Radius", "标记半径"}, {"Max Distance (Aim)", "最大瞄准距离"}, {"Max Distance (Player)", "最大玩家距离"}, {"Font Size (Player)", "玩家字体大小"}, {"Min Cash / Value", "最低现金/价值"}, {"Category##size", "类别##size"}, {"Use Global Distance", "使用全局距离"}, {"Share or reset item rules.", "分享或重置物品规则。"}, {"Search...", "搜索..."}, {"Scrollable list", "可滚动列表"},
+		{"Dot Radius", "标记半径"}, {"Max Distance (Aim)", "最大瞄准距离"}, {"Max Distance (Player)", "最大玩家距离"}, {"Font Size (Player)", "玩家字体大小"}, {"Min Cash / Value", "最低现金/价值"}, {"Category##size", "类别##size"}, {"Max Distance##plr", "最大距离"}, {"Font Size##plr", "字体大小"}, {"Icon Size##cat", "图标大小"}, {"Font Size##cat", "字体大小"}, {"Dot Size##cat", "标记点大小"}, {"Max Distance##cat", "最大距离"}, {"Use Global Distance", "使用全局距离"}, {"Share or reset item rules.", "分享或重置物品规则。"}, {"Search...", "搜索..."}, {"Scrollable list", "可滚动列表"},
 		{"On", "开启"}, {"Yes", "是"}, {"No", "否"}, {"Up", "按下"}, {"Down", "抬起"}, {"held", "按下"}, {"up", "抬起"}, {"Auto", "自动"}, {"Head", "头部"}, {"Body", "身体"}, {"Camera", "镜头"}, {"Screen", "屏幕"}, {"Bottom", "底部"}, {"Center", "中心"}, {"Top", "顶部"}, {"Crosshair", "准星"},
 		{"Right Shift", "右 Shift"}, {"Insert", "插入键"}, {"Delete", "删除键"}, {"Home", "Home 键"}, {"End", "End 键"}, {"Off", "关闭"}, {"Off-Screen Indicators", "屏幕外指示"}, {"Match", "战局"}, {"Active", "运行中"}, {"Waiting", "等待中"}, {"Not attached", "未连接"}, {"Attached", "已连接"}, {"Menu", "菜单"},
 		{"RANGE", "距离"}, {"DISPLAY", "显示"}, {"ITEM", "物品"}, {"Entities", "实体"}, {"Cash sources", "现金来源"}, {"Top value", "最高价值"}, {"Inventory", "物品栏"}, {"Slots", "槽位"}, {"Catalog", "目录"}, {"Skeletons", "骨骼数"}, {"Retries", "重试次数"}, {"Read failures", "读取失败"}, {"Overlay", "叠加层"}, {"FPS", "帧率"}, {"ENT", "实体"},
@@ -63,13 +63,27 @@ inline const char* Tr(const char* text)
 		{"Zeroes weapon vectors over DMA or applies dynamic pattern compensation.", "通过 DMA 清零武器向量，或应用动态压枪补偿。"}, {"Trusted Players: %d (manage in Misc -> Server)", "可信玩家：%d（在“杂项 -> 服务器”中管理）"}, {"Key %s (%s) | %s", "按键 %s（%s）| %s"}, {"Weapon: %s (%s%s) | Trigger: %s", "武器：%s（%s%s）| 扳机：%s"}, {"Candidates %d / %d | target %d", "候选目标 %d / %d | 目标 %d"}, {"Write %s (%s) | yaw %.1f pitch %.1f | %.0fm", "写入 %s（%s）| 偏航 %.1f 俯仰 %.1f | %.0f 米"}, {"Equipped: %s (Class: %s)", "已装备：%s（类别：%s）"}, {"No weapon", "无武器"}, {"No target", "无目标"}, {"aim disabled | Curve: %s | FOV: %d deg", "瞄准未启用 | 曲线：%s | 视野：%d 度"}, {"Status: %s", "状态：%s"}, {"Endpoint: %s", "端点：%s"}, {"Pad: %s | LT %.2f RT %.2f | RS (%.2f, %.2f)", "手柄：%s | LT %.2f RT %.2f | RS（%.2f，%.2f）"}, {"Read-only DMA overlay silhouette over character limbs.", "在角色肢体上绘制只读 DMA 轮廓。"}, {"Weapon skin data not found (offsets changed?).", "未找到武器皮肤数据（偏移是否已变化？）。"}, {"Switch weapons once if a chosen skin does not apply immediately.", "如果选择的皮肤没有立即生效，请切换一次武器。"}, {"Client-side only. Saved per Male/Female and restored when off or closed.", "仅客户端生效。按男性/女性分别保存，关闭或退出时恢复。"}, {"Status: Disconnected", "状态：未连接"}, {"Status: Connected", "状态：已连接"}, {"Status: Connecting", "状态：连接中"}, {"Status: Recovering", "状态：恢复中"}, {"Status: Ready", "状态：就绪"},
 		{"No owner", "无所有者"}, {"Raided", "已被袭击"}, {"Not raided", "未被袭击"}, {"No fuses", "无保险丝"}, {"Fuses armed", "保险丝已启动"}, {"Raid locked", "袭击锁定"}, {"Loot - placement ", "战利品 - 放置点 "}, {"[empty]", "[空]"}, {"[loot]", "[战利品]"}, {"[armed]", "[已启动]"}, {"DEFENCE", "防御"}, {"Doors", "门"}, {"BUILDINGS", "建筑"}, {"is looking at you!", "正在看着你！"}, {"COINS : $%d", "金币：$%d"}, {"CRYPTO : %d", "加密币：%d"}, {"BAG VALUE : $%d (Cash $%d / Items $%d)", "背包价值：$%d（现金 $%d / 物品 $%d）"}, {"EQUIP : $%d  |  VEH : $%d", "装备：$%d  |  车辆：$%d"}, {"Looking Alert", "注视警报"}, {"Radar", "雷达"}, {"Full Map", "全屏地图"},
 	};
-	auto it = words.find(text);
+	static const std::unordered_map<std::string_view, const char*> remainingWords = {
+		{"Radar Size", "雷达尺寸"}, {"Radar Zoom", "雷达缩放"}, {"Radar Opacity", "雷达透明度"},
+		{"Category", "类别"}, {"Ammo", "弹药"}, {"High Value >=", "高价值 >="}, {"Mid Value >=", "中等价值 >="},
+		{"Reset Filter", "重置筛选"}, {"Icon Size##cat", "图标大小"}, {"Font Size##cat", "字体大小"},
+		{"Dot Size##cat", "标记点大小"}, {"Max Distance##cat", "最大距离"}, {"Max Distance##plr", "最大距离"},
+		{"Font Size##plr", "字体大小"}, {"Per item", "按物品"}, {"Name", "名称"},
+		{"State Tags ([KD] [KO] [C] [S] [V])", "状态标签（[KD] [KO] [C] [S] [V]）"},
+		{"Managed camera (native off)", "托管镜头（原生镜头关闭）"},
+		{"Managed camera (native not found)", "托管镜头（未找到原生镜头）"},
+	};
+	auto it = remainingWords.find(text);
+	if (it != remainingWords.end()) return it->second;
+	it = words.find(text);
 	return it == words.end() ? text : it->second;
 }
 
 inline std::string TranslateRuntime(std::string text)
 {
 	if (!IsChinese()) return text;
+	const char* exact = Tr(text.c_str());
+	if (text != exact) return exact;
 	const auto replaceAll = [&](std::string_view from, std::string_view to) {
 		std::size_t pos = 0;
 		while ((pos = text.find(from, pos)) != std::string::npos) {

@@ -1,0 +1,23 @@
+BASELINE_COMMIT: 886ac3b591afc7db883767178e785541d7f0d644
+MODIFIED_FILE: I:\github\VeoxRobRun\artifacts\MODIFIED_FILE
+DIFF_FILE: I:\github\VeoxRobRun\artifacts\DIFF_FILE.patch
+VERIFICATION_FILE: I:\github\VeoxRobRun\artifacts\VERIFICATION.txt
+ROLLBACK_FILE: I:\github\VeoxRobRun\artifacts\ROLLBACK.sh
+MODIFIED_FILE_SHA256: 039EEA7823DEECB7E42B1B366DF874D59E6C93C4C3E9E255DC99E9776D05144F
+
+BASELINE_TEST_COMMAND: git diff --check HEAD -- VeoxDMA/Misc/Localization.h VeoxDMA/UI/VeoxMenu.cpp VeoxDMA/Esp/WorldEsp.cpp
+BASELINE_TEST_OUTPUT: no whitespace errors against baseline commit 886ac3b591afc7db883767178e785541d7f0d644
+BASELINE_TEST_EXIT: 0
+
+MODIFIED_TEST_COMMAND: git diff --check
+MODIFIED_TEST_OUTPUT: no whitespace errors
+MODIFIED_TEST_EXIT: 0
+
+BUILD_COMMAND: H:\VS2026\MSBuild\Current\Bin\MSBuild.exe VeoxDMA.sln /m /p:Configuration=Release /p:Platform=x64 /v:minimal
+BUILD_OUTPUT: VeoxDMA.vcxproj -> I:\github\VeoxRobRun\Build\Release\VeoxDMA\VeoxDMA.exe; warnings C4101 only
+BUILD_EXIT: 0
+
+ROLLBACK_TEST_COMMAND: copy MODIFIED_FILE to a temporary backup, restore target from git show HEAD:VeoxDMA/Misc/Localization.h, compare restored target with backup
+ROLLBACK_TEST_OUTPUT: rollback restored target from HEAD and changed the test copy
+ROLLBACK_TEST_EXIT: 0
+RESTORED_BEHAVIOR: rollback copy matched baseline Localization.h content; working-tree MODIFIED_FILE remains changed

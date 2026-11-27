@@ -72,7 +72,7 @@
   <PropertyGroup Label="UserMacros" />
   <Import Project="$(SolutionDir)auth.local.props" Condition="Exists('$(SolutionDir)auth.local.props')" />
   <PropertyGroup>
-    <BaoBaoAuthCoreDir Condition="'$(BaoBaoAuthCoreDir)'==''">$(BAOBAO_AUTH_CORE_DIR)</BaoBaoAuthCoreDir>
+    <BaoBaoAuthCppDir Condition="'$(BaoBaoAuthCppDir)'==''">$(BAOBAO_AUTH_CPP_DIR)</BaoBaoAuthCppDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(SolutionDir)Build\$(Configuration)\$(ProjectName)\</OutDir>
@@ -182,6 +182,18 @@ if exist "$(SolutionDir)tools\abcurves_continuous.bin" copy /y "$(SolutionDir)to
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Config\ConfigFile.cpp" />
+    <ClCompile Include="Security\LicenseAuth.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="Security\AuthController.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="Security\LoginDialog.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="$(BaoBaoAuthCppDir)\src\BaoBaoAuth.cpp" Condition="'$(Platform)'=='x64'">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <!-- Preserve the SDK's legacy GetVersionExW fallback without editing it. -->
+      <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <ObjectFileName>$(IntDir)BaoBaoAuthSdk.obj</ObjectFileName>
+    </ClCompile>
     <ClCompile Include="Esp\PlayerEsp.cpp" />
     <ClCompile Include="Esp\EspDraw.cpp" />
     <ClCompile Include="Aim\AimController.cpp" />
@@ -189,7 +201,6 @@ if exist "$(SolutionDir)tools\abcurves_continuous.bin" copy /y "$(SolutionDir)to
     <ClCompile Include="Overlay\Overlay.cpp" />
     <ClCompile Include="Overlay\OverlayNotify.cpp" />
     <ClCompile Include="Main.cpp" />
-    <ClCompile Include="Security\LicenseAuth.cpp" />
     <ClCompile Include="Memory\Memory.cpp" />
     <ClCompile Include="Misc\CheatFunction.cpp" />
     <ClCompile Include="Misc\Input.cpp" />
@@ -344,12 +355,23 @@ if exist "$(SolutionDir)tools\abcurves_continuous.bin" copy /y "$(SolutionDir)to
     <ClInclude Include="ImGUI\imstb_truetype.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ItemDefinitionGroup Condition="'$(Platform)'=='x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(BaoBaoAuthCppDir)\include;$(BaoBaoAuthCppDir)\third_party;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>winhttp.lib;bcrypt.lib;crypt32.lib;wbemuuid.lib;ole32.lib;oleaut32.lib;advapi32.lib;version.lib;shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Security\LicenseAuth.h" />
+    <ClInclude Include="Security\AuthController.h" />
+    <ClInclude Include="Security\LoginDialog.h" />
+    <ClInclude Include="Security\LoginResource.h" />
+    <ResourceCompile Include="Security\LoginDialog.rc" />
   </ItemGroup>
-  <Target Name="StageBaoBaoAuth" AfterTargets="Build" Condition="'$(Platform)'=='x64'">
-    <Error Condition="'$(BaoBaoAuthCoreDir)'==''" Text="Set BaoBaoAuthCoreDir in auth.local.props or BAOBAO_AUTH_CORE_DIR. See auth/README.md." />
-    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(SolutionDir)tools\auth\build.ps1&quot; -CoreSource &quot;$(BaoBaoAuthCoreDir)&quot; -OutputDirectory &quot;$(OutDir)auth&quot; -Configuration &quot;$(Configuration)&quot;" />
+  <Target Name="RequireBaoBaoNativeSdk" BeforeTargets="PrepareForBuild" Condition="'$(Platform)'=='x64'">
+    <Error Condition="!Exists('$(BaoBaoAuthCppDir)\src\BaoBaoAuth.cpp') Or !Exists('$(BaoBaoAuthCppDir)\include\BaoBao\Auth.hpp')" Text="Set BaoBaoAuthCppDir in auth.local.props or BAOBAO_AUTH_CPP_DIR to your private BaoBao.Auth.Cpp directory. See auth/README.md." />
   </Target>
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

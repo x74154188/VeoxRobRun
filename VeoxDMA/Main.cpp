@@ -354,7 +354,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 	Diag("config loaded");
 	DLOG("Config loaded");
 
-	// No device connection, reader or aim worker starts before online sign-in.
+	// The native BaoBao SDK must authorize before any DMA/device worker starts.
 	LicenseAuth::Lifetime licenseLifetime;
 	SetStage("license:login");
 	if (!LicenseAuth::Login(ConfigInstance.Overlay.ChineseLanguage)) return 2;

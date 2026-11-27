@@ -14,9 +14,6 @@
     <ClCompile Include="Esp\PlayerEsp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Security\LicenseAuth.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="UI\EspFont.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -306,8 +303,16 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Security\LicenseAuth.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
+    <ClCompile Include="Security\LicenseAuth.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="Security\AuthController.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="Security\LoginDialog.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="$(BaoBaoAuthCppDir)\src\BaoBaoAuth.cpp"><Filter>Source Files</Filter></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Security\LicenseAuth.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="Security\AuthController.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="Security\LoginDialog.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="Security\LoginResource.h"><Filter>Header Files</Filter></ClInclude>
+    <ResourceCompile Include="Security\LoginDialog.rc" />
   </ItemGroup>
 </Project>

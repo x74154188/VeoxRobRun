@@ -1,0 +1,17 @@
+#pragma code_page(65001)
+#include <windows.h>
+#include "LoginResource.h"
+
+IDD_LICENSE DIALOGEX 0, 0, 330, 165
+STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "VeoxRobRun - License verification"
+FONT 10, "Microsoft YaHei UI"
+BEGIN
+    LTEXT "License key (app: rob_run)", IDC_LICENSE_LABEL, 14, 13, 300, 16
+    EDITTEXT IDC_LICENSE_KEY, 14, 34, 300, 20, ES_PASSWORD | ES_AUTOHSCROLL | WS_TABSTOP
+    CONTROL "Remember key (encrypted for this Windows user)", IDC_LICENSE_REMEMBER, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 14, 62, 300, 16
+    DEFPUSHBUTTON "Sign in / Activate", IDOK, 14, 87, 105, 24
+    PUSHBUTTON "Exit", IDCANCEL, 128, 87, 70, 24
+    LTEXT "", IDC_LICENSE_STATUS, 14, 118, 300, 21
+    LTEXT "DMA starts after sign-in; checked every 60 seconds.", IDC_LICENSE_FOOTER, 14, 143, 300, 15
+END

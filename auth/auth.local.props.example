@@ -1,5 +1,5 @@
 <Project>
   <PropertyGroup>
-    <BaoBaoAuthCoreDir>E:\path\to\BaoBao.Auth.Core</BaoBaoAuthCoreDir>
+    <BaoBaoAuthCppDir>E:\path\to\BaoBao.Auth.Cpp</BaoBaoAuthCppDir>
   </PropertyGroup>
 </Project>

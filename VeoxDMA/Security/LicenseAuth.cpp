@@ -1,87 +1,74 @@
-#include "pch.h"
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+#include <shlobj.h>
 #include "LicenseAuth.h"
-#include "../../auth/native/nethost.h"
-#include "../../auth/native/hostfxr.h"
-#include "../../auth/native/coreclr_delegates.h"
-#include <vector>
+#include "AuthController.h"
+#include "LoginDialog.h"
+#include <memory>
+#include <mutex>
+#include <stdexcept>
+
+#pragma comment(lib, "shell32.lib")
+#pragma comment(lib, "ole32.lib")
 
 namespace LicenseAuth {
 namespace {
-// Keep the CLR and its native host loaded for the process lifetime.
-HMODULE nethostModule = nullptr, hostfxrModule = nullptr;
-component_entry_point_fn begin = nullptr, poll = nullptr, end = nullptr;
-bool ready = false;
-}
+class NativeClient final : public Client {
+    BaoBao::Auth::LicenseClient client_;
+public:
+    BaoBao::Auth::AuthResponse CheckVersion() override { return client_.CheckVersion(); }
+    BaoBao::Auth::AuthResponse Activate(const std::string& key) override { return client_.ActivateKey(key); }
+    bool Validate() override { return BaoBao::Auth::AuthSession::Validate(); }
+    bool Active() override { return BaoBao::Auth::AuthSession::IsActive(); }
+    void Invalidate() override { BaoBao::Auth::AuthSession::Invalidate(); }
+    void StartHeartbeat(const std::string& key,
+        std::function<void(const BaoBao::Auth::AuthResponse&)> callback) override {
+        client_.StartHeartbeat(key, std::chrono::seconds(60), std::move(callback));
+    }
+    void StopHeartbeat() override { client_.StopHeartbeat(); }
+};
+std::mutex stateMutex;
+std::shared_ptr<Controller> controller;
 
-bool Initialize(const std::filesystem::path& directory)
+std::filesystem::path KeyPath()
 {
-    if (ready) return true;
-    const auto folder = std::filesystem::absolute(directory) / L"auth";
-    const auto assembly = folder / L"Veox.AuthBridge.dll";
-    const auto runtimeConfig = folder / L"Veox.AuthBridge.runtimeconfig.json";
-    if (!std::filesystem::exists(assembly) || !std::filesystem::exists(runtimeConfig)) return false;
-    if (!nethostModule) nethostModule = LoadLibraryExW((folder / L"nethost.dll").c_str(), nullptr,
-        LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
-    if (!nethostModule) return false;
-    auto getPath = reinterpret_cast<decltype(&get_hostfxr_path)>(GetProcAddress(nethostModule, "get_hostfxr_path"));
-    if (!getPath) return false;
-    size_t size = 0;
-    get_hostfxr_parameters parameters{ sizeof(parameters), assembly.c_str(), nullptr };
-    getPath(nullptr, &size, &parameters);
-    if (!size || size > 32768) return false;
-    std::vector<wchar_t> hostPath(size);
-    if (getPath(hostPath.data(), &size, &parameters) != 0) return false;
-    if (!hostfxrModule) hostfxrModule = LoadLibraryExW(hostPath.data(), nullptr,
-        LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
-    if (!hostfxrModule) return false;
-    auto init = reinterpret_cast<hostfxr_initialize_for_runtime_config_fn>(GetProcAddress(hostfxrModule, "hostfxr_initialize_for_runtime_config"));
-    auto getDelegate = reinterpret_cast<hostfxr_get_runtime_delegate_fn>(GetProcAddress(hostfxrModule, "hostfxr_get_runtime_delegate"));
-    auto close = reinterpret_cast<hostfxr_close_fn>(GetProcAddress(hostfxrModule, "hostfxr_close"));
-    if (!init || !getDelegate || !close) return false;
-    hostfxr_handle context = nullptr;
-    const int status = init(runtimeConfig.c_str(), nullptr, &context);
-    if (status < 0 || !context) { if (context) close(context); return false; }
-    load_assembly_and_get_function_pointer_fn load = nullptr;
-    const int delegateStatus = getDelegate(context, hdt_load_assembly_and_get_function_pointer,
-        reinterpret_cast<void**>(&load));
-    close(context);
-    if (delegateStatus != 0 || !load) return false;
-    auto bind = [&](const wchar_t* name, component_entry_point_fn& target) {
-        return load(assembly.c_str(), L"Veox.AuthBridge.EntryPoints, Veox.AuthBridge", name,
-            nullptr, nullptr, reinterpret_cast<void**>(&target)) == 0 && target;
-    };
-    component_entry_point_fn probe = nullptr;
-    ready = bind(L"Begin", begin) && bind(L"Poll", poll) && bind(L"End", end)
-        && bind(L"Probe", probe) && probe(nullptr, 0) == 1;
-    return ready;
+    PWSTR folder = nullptr;
+    if (FAILED(SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, nullptr, &folder)))
+        throw std::runtime_error("LocalAppData unavailable");
+    const std::filesystem::path path = std::filesystem::path(folder) / L"VeoxRobRun" / L"rob_run" / L"license.dat";
+    CoTaskMemFree(folder);
+    return path;
+}
 }
 
 bool Login(bool chinese)
 {
     try {
-        wchar_t path[32768]{};
-        const DWORD length = GetModuleFileNameW(nullptr, path, static_cast<DWORD>(std::size(path)));
-        if (!length || length == std::size(path) || !Initialize(std::filesystem::path(path).parent_path())) {
-            MessageBoxW(nullptr, chinese
-                ? L"网络验证组件加载失败。请保留程序旁的 auth 文件夹，并安装 x64 .NET 9 Desktop Runtime。"
-                : L"License component failed to load. Keep the auth folder beside this executable and install x64 .NET 9 Desktop Runtime.",
-                L"VeoxRobRun", MB_OK | MB_ICONERROR);
-            return false;
-        }
-        int language = chinese ? 1 : 0;
-        return begin(&language, sizeof(language)) == 1 && IsAuthorized();
-    } catch (...) { return false; }
+        BaoBao::Auth::AppIdentity::Configure(AppId, AppVersion);
+        auto candidate = std::make_shared<Controller>(std::make_unique<NativeClient>());
+        const bool accepted = ShowLoginDialog(candidate, KeyPath(), chinese);
+        if (!accepted || !candidate->IsAuthorized()) { candidate->Shutdown(); return false; }
+        std::lock_guard<std::mutex> lock(stateMutex);
+        controller = std::move(candidate);
+        return true;
+    } catch (...) {
+        MessageBoxW(nullptr, chinese ? L"网络验证初始化失败。" : L"License verification initialization failed.",
+            L"VeoxRobRun", MB_OK | MB_ICONERROR);
+        return false;
+    }
 }
-
 bool IsAuthorized()
 {
-    try { return ready && poll && poll(nullptr, 0) == 1; }
-    catch (...) { return false; }
+    try {
+        std::lock_guard<std::mutex> lock(stateMutex);
+        return controller && controller->IsAuthorized();
+    } catch (...) { return false; }
 }
-
 void Shutdown()
 {
-    try { if (ready && end) end(nullptr, 0); }
-    catch (...) { }
+    std::shared_ptr<Controller> old;
+    { std::lock_guard<std::mutex> lock(stateMutex); old.swap(controller); }
+    if (old) old->Shutdown();
 }
 }

@@ -2,7 +2,7 @@
 // Categories, names, rarity and prices come from the item database
 // (tools/loot/data/item-database.tsv); ids and entity kinds from the game registries.
 //
-// Rows: 946   categories: 26
+// Rows: 945   categories: 26
 #pragma once
 #include <array>
 #include <cstdint>
@@ -846,7 +846,7 @@ inline constexpr std::array kItemCatalog = std::to_array<ItemDef>({
     { "gemstone_1", "Diamond in Case", "Gemstone_1", Category::Valuables, Rarity::Exotic, RobRunWorld::Kind::Loot, "gemstone_1", 255, 215, 0, true, 200000 },
     { "vinyl_2", "Golden Disc", "vinyl_2", Category::Valuables, Rarity::Exotic, RobRunWorld::Kind::Loot, "vinyl_2", 255, 215, 0, true, 318180 },
     { "baseball_card_6", "Harley Wanger Card", "Baseball_Card_6", Category::Valuables, Rarity::Exotic, RobRunWorld::Kind::Loot, "baseball_card_6", 255, 215, 0, true, 217320 },
-    { "alcohol_15", "King\226\128\153s Reserve Bottle", "Alcohol_15", Category::Valuables, Rarity::Exotic, RobRunWorld::Kind::Loot, "alcohol_15", 255, 215, 0, true, 200000 },
+    { "alcohol_15", "King\342\200\231s Reserve Bottle", "Alcohol_15", Category::Valuables, Rarity::Exotic, RobRunWorld::Kind::Loot, "alcohol_15", 255, 215, 0, true, 200000 },
     { "pharma_tools_2", "Microscope", "pharma_tools_2", Category::Valuables, Rarity::Exotic, RobRunWorld::Kind::Loot, "pharma_tools_2", 255, 215, 0, true, 194620 },
     { "laptop_5", "MSR PRO Laptop", "Laptop_5", Category::Valuables, Rarity::Exotic, RobRunWorld::Kind::Loot, "laptop_5", 255, 215, 0, true, 204256 },
     { "car_trinket_6", "Plush Car Charm", "car_trinket_6", Category::Valuables, Rarity::Exotic, RobRunWorld::Kind::Loot, "car_trinket_6", 255, 215, 0, true, 192160 },

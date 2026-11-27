@@ -47,7 +47,7 @@ function CStr([string]$s) {
         if ($b -eq 0x22) { [void]$sb.Append('\"') }
         elseif ($b -eq 0x5C) { [void]$sb.Append('\\') }
         elseif ($b -ge 0x20 -and $b -lt 0x7F) { [void]$sb.Append($c) }
-        else { [void]$sb.Append(('\{0:000}' -f $b)) }
+        else { [void]$sb.Append('\' + [Convert]::ToString($b, 8).PadLeft(3, '0')) }
     }
     [void]$sb.Append('"')
     return $sb.ToString()

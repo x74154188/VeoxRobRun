@@ -2678,7 +2678,7 @@ void LootItemRow(const LootFilter::ItemDef& def, ItemSettings& item)
 		if (item.useGlobalDistance || item.maxDistance <= 0)
 			strcpy_s(distBuf, Localization::Tr("Global"));
 		else
-			std::snprintf(distBuf, sizeof(distBuf), "%d m", item.maxDistance);
+			std::snprintf(distBuf, sizeof(distBuf), Localization::Tr("%d m"), item.maxDistance);
 		const float dtw = TextW(font::inter_medium_small, distBuf);
 		dl->AddText(font::inter_medium_small, font::inter_medium_small->FontSize,
 			ImVec2(distRect.Min.x + (distW - dtw) * 0.5f, RowTextY(p.y, rowH, font::inter_medium_small)),
@@ -2703,7 +2703,7 @@ void LootItemRow(const LootFilter::ItemDef& def, ItemSettings& item)
 	{
 		bool changed = false;
 		ImGui::PushFont(font::inter_medium_widget);
-		const std::string localizedName = Localization::TranslateRuntime(def.displayName ? def.displayName : "");
+		const std::string localizedName = Localization::TranslateItemName(def.displayName ? def.displayName : "");
 		ImGui::TextUnformatted(localizedName.c_str());
 		ImGui::PopFont();
 		ImGui::Separator();
@@ -2725,7 +2725,7 @@ void LootItemRow(const LootFilter::ItemDef& def, ItemSettings& item)
 			g_dirty = true;
 		ImGui::BeginDisabled(item.useGlobalDistance);
 		ImGui::SetNextItemWidth(210.f);
-		if (ImGui::SliderInt("##lf_rng", &item.maxDistance, 0, 3000, "Range: %d m"))
+		if (ImGui::SliderInt("##lf_rng", &item.maxDistance, 0, 3000, Localization::Tr("Range: %d m")))
 			g_dirty = true;
 		ImGui::EndDisabled();
 
@@ -2781,14 +2781,15 @@ void LootItemRow(const LootFilter::ItemDef& def, ItemSettings& item)
 		}
 	}
 
-	const char* shownName = item.customName.empty() ? def.displayName : item.customName.c_str();
+	const std::string localizedName = Localization::TranslateItemName(def.displayName, item.customName);
+	const char* shownName = localizedName.c_str();
 	dl->PushClipRect(ImVec2(p.x, p.y), ImVec2(priceRightX - priceW - 6.f, p.y + rowH), true);
 	dl->AddText(font::inter_medium_widget, font::inter_medium_widget->FontSize,
 		ImVec2(nameStartX, RowTextY(p.y, rowH, font::inter_medium_widget)),
 		C(item.visible ? kText : kTextDim), shownName);
 	{
 		const float nameW = TextW(font::inter_medium_widget, shownName);
-		const char* catName = LootFilter::CategoryNames[(int)def.category];
+		const char* catName = Localization::Tr(LootFilter::CategoryNames[(int)def.category]);
 		dl->AddText(font::inter_medium_small, font::inter_medium_small->FontSize,
 			ImVec2(nameStartX + nameW + 8.f, RowTextY(p.y, rowH, font::inter_medium_small)),
 			C(kTextFaint), catName);
@@ -2859,7 +2860,7 @@ void DrawWorldCatalog()
 	int enabledCount = 0;
 	for (const auto& def : LootFilter::kItemCatalog) {
 		if (!inCategory(def)) continue;
-		if (s_search[0] && !CaseContains(def.displayName, s_search)) continue;
+		if (!Localization::ItemMatchesSearch(s_search, def.id, def.displayName, lf.GetItem(def.id).customName)) continue;
 		shown.push_back(&def);
 		if (lf.IsItemVisible(def.id)) ++enabledCount;
 	}
@@ -2920,7 +2921,7 @@ void DrawWorldCatalog()
 
 	{
 		char statsBuf[64];
-		std::snprintf(statsBuf, sizeof(statsBuf), "%d shown | %d enabled | %d sel",
+		std::snprintf(statsBuf, sizeof(statsBuf), Localization::Tr("%d shown | %d enabled | %d sel"),
 			(int)shown.size(), enabledCount, (int)s_lfSelected.size());
 		const ImVec2 sp = ImGui::GetCursorScreenPos();
 		TextRight(font::inter_medium_small, sp.x + ImGui::GetContentRegionAvail().x,
@@ -3321,9 +3322,9 @@ void DrawMiscSkins()
 
 static std::string FormatDistance(float meters)
 {
-	if (meters < 0.01f) return "0 m";
+	if (meters < 0.01f) return Localization::IsChinese() ? "0 米" : "0 m";
 	char buf[32];
-	std::snprintf(buf, sizeof(buf), "%.1f m", meters);
+	std::snprintf(buf, sizeof(buf), Localization::Tr("%.1f m"), meters);
 	return buf;
 }
 
@@ -3420,12 +3421,12 @@ void DrawMiscServer()
 	}
 
 	char titleBuf[64], metaBuf[96];
-	std::snprintf(titleBuf, sizeof(titleBuf), "Players On Map (%d / %d)###srv_roster", (int)items.size(), totalCount);
+	std::snprintf(titleBuf, sizeof(titleBuf), Localization::Tr("Players On Map (%d / %d)###srv_roster"), (int)items.size(), totalCount);
 	if (snapshot->spectatorAlert || snapshot->observerCount > 0)
-		std::snprintf(metaBuf, sizeof(metaBuf), "%d alive | %d dead | %d party | %d spec",
+		std::snprintf(metaBuf, sizeof(metaBuf), Localization::Tr("%d alive | %d dead | %d party | %d spec"),
 			aliveCount, deadCount, partyCount, snapshot->observerCount);
 	else
-		std::snprintf(metaBuf, sizeof(metaBuf), "%d alive | %d dead | %d party",
+		std::snprintf(metaBuf, sizeof(metaBuf), Localization::Tr("%d alive | %d dead | %d party"),
 			aliveCount, deadCount, partyCount);
 
 	BeginCard(titleBuf, IconKind::Users, fullW, kAvailH, false, metaBuf, true);
@@ -3610,7 +3611,7 @@ void DrawMiscServer()
 			ImU32 hpCol = (ent.isDead || (ent.healthKnown && ent.health < 40.f)) ? C(kRed) : C(kTextDim);
 			dl->AddText(font::inter_medium_small, font::inter_medium_small->FontSize, ImVec2(leftX, line2Y), hpCol, hpBuf);
 			float l2X = leftX + TextW(font::inter_medium_small, hpBuf) + 14.f;
-		const std::string wepStr = std::string(Localization::Tr("Weapon: ")) + item.weapon;
+		const std::string wepStr = std::string(Localization::Tr("Weapon: ")) + Localization::TranslateItemName(item.weapon);
 			dl->AddText(font::inter_medium_small, font::inter_medium_small->FontSize, ImVec2(l2X, line2Y), C(kTextFaint), wepStr.c_str());
 			if (ent.inVehicle) {
 				l2X += TextW(font::inter_medium_small, wepStr.c_str()) + 10.f;

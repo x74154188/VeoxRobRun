@@ -892,15 +892,15 @@ void DrawPlayers()
 		// Bottom: weapon sprite + weapon name + distance
 		float botY = boxValid ? (maxY + 8.f) : (screenPos.y + 14.f);
 		{
-			const std::string& weapStr = ent.weaponNameUtf8;
+			const std::string weapStr = Localization::TranslateItemName(ent.weaponNameUtf8);
 			char distBuf[32]{};
 			if (pcfg.Distance)
-				snprintf(distBuf, sizeof(distBuf), "%.1f m", distF);
+				snprintf(distBuf, sizeof(distBuf), Localization::Tr("%.1f m"), distF);
 
 			float spriteW = 0.f, spriteH = 0.f;
 			WeaponSprites::SpriteInfo sprite{};
 			if (pcfg.WeaponEsp && pcfg.WeaponSprite && !weapStr.empty()) {
-				sprite = WeaponSprites::Get(weapStr);
+				sprite = WeaponSprites::Get(ent.weaponNameUtf8);
 				if (sprite.srv) {
 					spriteH = fontSize + 2.f;
 					spriteW = spriteH * ((float)sprite.width / (float)sprite.height);

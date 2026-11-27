@@ -484,9 +484,9 @@ void DrawWorldEntities()
 		// Matches the reference layout: icon above the dot, then the lines.
 		float lineY = screen.y + (wantDot ? (filterOn ? lf.ResolvedDotSize(sizingCat) : 2.5f) : 0.f) + 2.f;
 		ImFont* useFont = font;
-		auto drawLine = [&](const std::string& text, ImU32 col) {
+		auto drawLine = [&](const std::string& text, ImU32 col, bool runtimeText = true) {
 			if (text.empty()) return;
-			const std::string displayText = Localization::TranslateRuntime(text);
+			const std::string displayText = runtimeText ? Localization::TranslateRuntime(text) : text;
 			ImVec2 size = useFont
 				? useFont->CalcTextSizeA(labelSize, FLT_MAX, 0.f, displayText.c_str())
 				: ImGui::CalcTextSize(displayText.c_str());
@@ -504,12 +504,13 @@ void DrawWorldEntities()
 			// item id ("phones_3"), which is not what belongs on screen.
 			const bool unresolvedRandom = entity.kind == RobRunWorld::Kind::RandomLoot &&
 				entity.label.empty();
+			const bool customLabel = !unresolvedRandom && filterOn && itemCfg && !itemCfg->customName.empty();
 			std::string label = (filterOn && itemDef && itemDef->displayName[0])
 				? itemDef->displayName
 				: entity.label;
 			if (unresolvedRandom)
 				label = "Loot - placement " + std::to_string(entity.id);
-			else if (filterOn && itemCfg && !itemCfg->customName.empty())
+			else if (customLabel)
 				label = itemCfg->customName;
 
 			if (entity.label.starts_with("alcohol_")) {
@@ -525,9 +526,9 @@ void DrawWorldEntities()
 			}
 
 			// Rename "Bush" → "Weed" in display labels + optional hide
-			{
+			if (!customLabel) {
 				bool isBush = false;
-				const char* weedName = Localization::IsChinese() ? "杂草" : "Weed";
+				const char* weedName = "Weed";
 				for (std::size_t p = 0; (p = label.find("Bush", p)) != std::string::npos; p += std::strlen(weedName)) {
 					label.replace(p, 4, weedName);
 					isBush = true;
@@ -535,12 +536,14 @@ void DrawWorldEntities()
 				if (isBush && !lf.Enabled && !ConfigInstance.World.Weed)
 					continue;
 			}
+			if (!customLabel)
+				label = unresolvedRandom ? Localization::TranslateRuntime(label) : Localization::TranslateItemName(label);
 
 			if (entity.kind == RobRunWorld::Kind::Container &&
 				ConfigInstance.World.ShowEmpty && entity.hasEmptyFlag) {
-				label += entity.empty ? " [empty]" : " [loot]";
+				label += Localization::Tr(entity.empty ? " [empty]" : " [loot]");
 			} else if (entity.kind == RobRunWorld::Kind::DefenseBlock && entity.hasEmptyFlag) {
-				label += entity.empty ? " [empty]" : " [armed]";
+				label += Localization::Tr(entity.empty ? " [empty]" : " [armed]");
 			}
 
 			// Game rarity (RarityItem: 1 Common .. 5 Legendary, 6 Exotic) wins;
@@ -560,7 +563,7 @@ void DrawWorldEntities()
 				}
 			}
 			const ImU32 nameCol = filterOn ? RarityColorU32(nameRarity) : markerCol;
-			drawLine(label, nameCol);
+			drawLine(label, nameCol, false);
 		}
 
 		if (wantPrice) {

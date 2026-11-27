@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ConfigInstance.h"
+#include "LocalizationNames.h"
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -64,6 +65,30 @@ inline const char* Tr(const char* text)
 		{"No owner", "无所有者"}, {"Raided", "已被袭击"}, {"Not raided", "未被袭击"}, {"No fuses", "无保险丝"}, {"Fuses armed", "保险丝已启动"}, {"Raid locked", "袭击锁定"}, {"Loot - placement ", "战利品 - 放置点 "}, {"[empty]", "[空]"}, {"[loot]", "[战利品]"}, {"[armed]", "[已启动]"}, {"DEFENCE", "防御"}, {"Doors", "门"}, {"BUILDINGS", "建筑"}, {"is looking at you!", "正在看着你！"}, {"COINS : $%d", "金币：$%d"}, {"CRYPTO : %d", "加密币：%d"}, {"BAG VALUE : $%d (Cash $%d / Items $%d)", "背包价值：$%d（现金 $%d / 物品 $%d）"}, {"EQUIP : $%d  |  VEH : $%d", "装备：$%d  |  车辆：$%d"}, {"Looking Alert", "注视警报"}, {"Radar", "雷达"}, {"Full Map", "全屏地图"},
 	};
 	static const std::unordered_map<std::string_view, const char*> remainingWords = {
+		{"Icon Size", "图标大小"}, {"Dot Size", "标记点大小"},
+		{"Name > Rarity", "名称 > 稀有度"}, {"Rarity > Name", "稀有度 > 名称"},
+		{"Price High-Low", "价格：从高到低"}, {"Sell price", "出售价格"},
+		{"Buy price", "购买价格"}, {"Unlock price", "解锁价格"},
+		{"Auth 1", "权限 1"}, {"Auth 2", "权限 2"}, {"Auth 3", "权限 3"},
+		{"Auth 4", "权限 4"}, {"Auth 5", "权限 5"},
+		{"%d shown | %d enabled | %d sel", "%d 项显示 | %d 项启用 | %d 项选中"},
+		{"Players On Map (%d / %d)###srv_roster", "地图上的玩家（%d / %d）###srv_roster"},
+		{"%d alive | %d dead | %d party", "%d 人存活 | %d 人死亡 | %d 名队友"},
+		{"%d alive | %d dead | %d party | %d spec", "%d 人存活 | %d 人死亡 | %d 名队友 | %d 人观战"},
+		{"Distance (Nearest)", "距离（最近）"}, {"Health (Lowest)", "生命值（最低）"},
+		{"Name (A-Z)", "名称（A-Z）"}, {"Range: %d m", "距离：%d 米"},
+		{" [empty]", " [空]"}, {" [loot]", " [战利品]"}, {" [armed]", " [已启动]"},
+		{"%dm", "%d米"}, {"%d m", "%d 米"}, {"%.1f m", "%.1f 米"},
+		{"Breaching tools", "破门工具"}, {"Car upgrades", "车辆升级"},
+		{"Containers", "容器"}, {"Cumulative items", "累计物品"}, {"Documents", "文件"},
+		{"Furniture & objects", "家具与物件"}, {"Grenades", "手榴弹"},
+		{"Home & plot", "住宅与地块"}, {"Keys", "钥匙"}, {"Laboratory", "实验室"},
+		{"Loot Nodes", "战利品点"}, {"Medicine", "医疗用品"}, {"NPC", "非玩家角色"},
+		{"Plot buildings", "地块建筑"}, {"Security", "安保"}, {"Tools", "工具"},
+		{"Valuables", "贵重物品"}, {"Weapon maintenance", "武器维护"},
+		{"Workbenches & upgrades", "工作台与升级"}, {"World Loot", "世界战利品"},
+		{"Uncommon+", "罕见及以上"}, {"Rare+", "稀有及以上"}, {"Epic+", "史诗及以上"},
+		{"Legendary+", "传说及以上"}, {"Mythical", "神话"},
 		{"ABCurves Scale", "ABCurves 缩放"}, {"ABCurves Packet Renderer", "ABCurves 数据包渲染器"},
 		{"ABCurves Planner: %s", "ABCurves 规划器：%s"},
 		{"ready (abcurves_continuous.bin)", "就绪（abcurves_continuous.bin）"},
@@ -186,6 +211,34 @@ inline std::string TranslateRuntime(std::string text)
 		}
 	}
 	return std::string(Tr(text.c_str()));
+}
+
+// Contextual item/vehicle names only: do not run broad HUD replacements over
+// registry IDs, model codes, player nicknames or user-supplied custom labels.
+inline std::string TranslateItemName(std::string_view name, std::string_view customName = {})
+{
+	if (!customName.empty()) return std::string(customName);
+	if (IsChinese()) {
+		if (const char* translated = Names::Lookup(name)) return translated;
+	}
+	return std::string(name);
+}
+
+// Search the original ID, English name, Chinese name and explicit custom label.
+// Only ASCII case is folded; UTF-8 byte sequences remain intact.
+inline bool ItemMatchesSearch(std::string_view query, std::string_view id,
+	std::string_view name, std::string_view customName = {})
+{
+	const auto contains = [query](std::string_view value) {
+		return std::search(value.begin(), value.end(), query.begin(), query.end(),
+			[](unsigned char a, unsigned char b) {
+				const auto lower = [](unsigned char c) { return c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c; };
+				return lower(a) == lower(b);
+			}) != value.end();
+	};
+	if (query.empty() || contains(id) || contains(name) || contains(customName)) return true;
+	const char* chinese = Names::Lookup(name);
+	return chinese && contains(chinese);
 }
 
 } // namespace Localization

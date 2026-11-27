@@ -489,7 +489,7 @@ static bool EvaluateLootEntity(const RobRunWorld::Entity& ent, const Vector3& lo
 		out.colour = dotCol;
 		out.dotSize = dotSize;
 		out.hasHighValueRing = false;
-		out.text = ent.label;
+		out.text = Localization::TranslateItemName(ent.label);
 		return true;
 	}
 
@@ -543,14 +543,8 @@ static bool EvaluateLootEntity(const RobRunWorld::Entity& ent, const Vector3& lo
 	}
 
 	// 6. Item search query
-	if (!lf.SearchQuery.empty()) {
-		std::string hay = ent.label;
-		std::string needle = lf.SearchQuery;
-		std::transform(hay.begin(), hay.end(), hay.begin(), [](unsigned char c) { return (char)std::tolower(c); });
-		std::transform(needle.begin(), needle.end(), needle.begin(), [](unsigned char c) { return (char)std::tolower(c); });
-		if (hay.find(needle) == std::string::npos)
-			return false;
-	}
+	if (!Localization::ItemMatchesSearch(lf.SearchQuery, ent.label, itemDef->displayName, item.customName))
+		return false;
 
 	// 7. Value tiering & highlighting
 	bool highValueRing = false;
@@ -572,8 +566,11 @@ static bool EvaluateLootEntity(const RobRunWorld::Entity& ent, const Vector3& lo
 	const bool wantPrice = item.Has(LootFilter::RenderPrice);
 	const bool wantDist  = item.Has(LootFilter::RenderDistance);
 	if (wantName || wantDist) {
-		if (wantName)
-			text = ent.label;
+		if (wantName) {
+			// English keeps the legacy label; Chinese uses the resolved catalog name.
+			text = Localization::TranslateItemName(
+				Localization::IsChinese() ? itemDef->displayName : ent.label, item.customName);
+		}
 		if (wantPrice && ent.hasCashAmount) {
 			if (!text.empty())
 				text += " | ";
@@ -582,11 +579,11 @@ static bool EvaluateLootEntity(const RobRunWorld::Entity& ent, const Vector3& lo
 				text += " (C:$" + FormatCash(ent.cleanCash) + " D:$" + FormatCash(ent.dirtyCash) + ")";
 			}
 		} else if (wantName && !lf.HideEmpty && ent.hasEmptyFlag) {
-			text += ent.empty ? " [empty]" : " [loot]";
+			text += Localization::Tr(ent.empty ? " [empty]" : " [loot]");
 		}
 		if (wantDist && haveLocalPos) {
 			if (!text.empty()) text += " ";
-			text += "[" + std::to_string((int)distance) + "m]";
+			text += "[" + std::to_string((int)distance) + (Localization::IsChinese() ? "米]" : "m]");
 		}
 	}
 
@@ -1151,7 +1148,7 @@ void DrawFullMap()
 					continue;
 				dl->AddCircleFilled(sp, 4.f, IM_COL32(120, 190, 255, 220));
 				if (cfg.ShowLootNames && !ent.label.empty()) {
-					const std::string displayLabel = Localization::TranslateRuntime(ent.label);
+					const std::string displayLabel = Localization::TranslateItemName(ent.label);
 					ImVec2 ts = ImGui::CalcTextSize(displayLabel.c_str());
 					dl->AddText(ImVec2(sp.x - ts.x * 0.5f, sp.y + 5.f),
 						IM_COL32(220, 220, 220, 180), displayLabel.c_str());
@@ -1198,7 +1195,7 @@ void DrawFullMap()
 					(ConfigInstance.LootFilter.Enabled || cfg.ShowLootNames);
 
 				if (showLabel) {
-					const std::string displayText = Localization::TranslateRuntime(lootInfo.text);
+					const std::string& displayText = lootInfo.text;
 					ImVec2 ts = ImGui::CalcTextSize(displayText.c_str());
 					ImVec2 tp(sp.x - ts.x * 0.5f, sp.y + markerPx + 1.f);
 					dl->AddText(ImVec2(tp.x + 1.f, tp.y + 1.f), IM_COL32(0, 0, 0, 240), displayText.c_str());

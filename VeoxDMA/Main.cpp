@@ -18,6 +18,7 @@
 #include "Input/InputManager.h"
 #include "Input/DeviceSession.h"
 #include "UI/VeoxMenu.h"
+#include "UI/EspFont.h"
 #include "ImGUI/imgui.h"
 #include "Overlay/Overlay.h"
 #include "Overlay/Backdrop.h"
@@ -403,6 +404,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 	};
 	callbacks.tick = [] {
 		TickOverlay();
+		VeoxMenu::UpdateFonts();
 	};
 	callbacks.draw = [] {
 		static int frameCount = 0;
@@ -422,6 +424,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 			// is being shut down and the last snapshot is stale.
 			if (g_attached.load(std::memory_order_acquire)) {
 				FrameCameraGuard cameraGuard((int)display.x, (int)display.y);
+				EspFont::Scope espFont;
 				const auto frameSnap = RobRunReader::GetSnapshot();
 				const bool suppress3D = frameSnap &&
 					frameSnap->inGameMap.valid &&

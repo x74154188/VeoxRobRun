@@ -65,6 +65,14 @@ inline const char* Tr(const char* text)
 		{"No owner", "无所有者"}, {"Raided", "已被袭击"}, {"Not raided", "未被袭击"}, {"No fuses", "无保险丝"}, {"Fuses armed", "保险丝已启动"}, {"Raid locked", "袭击锁定"}, {"Loot - placement ", "战利品 - 放置点 "}, {"[empty]", "[空]"}, {"[loot]", "[战利品]"}, {"[armed]", "[已启动]"}, {"DEFENCE", "防御"}, {"Doors", "门"}, {"BUILDINGS", "建筑"}, {"is looking at you!", "正在看着你！"}, {"COINS : $%d", "金币：$%d"}, {"CRYPTO : %d", "加密币：%d"}, {"BAG VALUE : $%d (Cash $%d / Items $%d)", "背包价值：$%d（现金 $%d / 物品 $%d）"}, {"EQUIP : $%d  |  VEH : $%d", "装备：$%d  |  车辆：$%d"}, {"Looking Alert", "注视警报"}, {"Radar", "雷达"}, {"Full Map", "全屏地图"},
 	};
 	static const std::unordered_map<std::string_view, const char*> remainingWords = {
+		{"ESP Font", "ESP 字体"}, {"Choose Font File...", "选择字体文件..."},
+		{"Reset ESP Font", "恢复默认 ESP 字体"}, {"Default ESP font", "默认 ESP 字体"},
+		{"ESP font loaded", "ESP 字体已加载"},
+		{"Font load failed; using the default ESP font.", "字体加载失败，已使用默认 ESP 字体。"},
+		{"Applies to ESP text only. Existing text-size settings still apply.", "仅应用于 ESP 文字，原有字号设置继续生效。"},
+		{"Supports .ttf, .otf and .ttc files. Missing Chinese glyphs use a system Chinese font.", "支持 .ttf、.otf 和 .ttc 字体文件，缺失的中文字形会补用系统中文字体。"},
+		{"Saved with the current configuration. TTC collections use the first face.", "随当前配置保存，TTC 字体集合使用第一个字型。"},
+		{"ESP Font Preview", "ESP 字体预览"}, {"Player / Loot / Vehicle 123 ABC", "玩家 / 物品 / 载具 123 ABC"},
 		{"Icon Size", "图标大小"}, {"Dot Size", "标记点大小"},
 		{"Name > Rarity", "名称 > 稀有度"}, {"Rarity > Name", "稀有度 > 名称"},
 		{"Price High-Low", "价格：从高到低"}, {"Sell price", "出售价格"},

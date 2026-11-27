@@ -53,6 +53,7 @@ public:
 	bool StatusPanel = true;         // feature status dots in the top-left
 	int FrameCap = 240;              // default 240 fps, 0 = uncapped
 	std::string FontName = "Maven Pro";
+	std::string EspFontPath;         // UTF-8 path; empty uses the normal ESP font
 	bool ChineseLanguage = false;    // show menu, HUD, radar and ESP labels in Simplified Chinese
 	bool Transparent = true;         // per-pixel alpha over the game
 	bool HighContrastMenu = false;   // solid menu fills for bright scenes
@@ -133,6 +134,7 @@ public:
 		j[ConfigName][LIT("FovChanger")] = FovChanger;
 		j[ConfigName][LIT("CameraFov")] = CameraFov;
 		j[ConfigName][LIT("FontName")] = FontName;
+		j[ConfigName][LIT("EspFontPath")] = EspFontPath;
 		j[ConfigName][LIT("ChineseLanguage")] = ChineseLanguage;
 		j[ConfigName][LIT("MenuWindow")] = MenuWindow.ToJson();
 		j[ConfigName][LIT("RadarWindow")] = RadarWindow.ToJson();
@@ -174,6 +176,7 @@ public:
 		CameraFov = s.value(LIT("CameraFov"), CameraFov);
 		if (s.contains(LIT("fov_value"))) CameraFov = s.value(LIT("fov_value"), CameraFov);
 		FontName = s.value(LIT("FontName"), FontName);
+		EspFontPath = s.value(LIT("EspFontPath"), std::string{});
 		ChineseLanguage = s.value(LIT("ChineseLanguage"), ChineseLanguage);
 		if (s.contains(LIT("MenuWindow")))
 			MenuWindow.FromJson(s[LIT("MenuWindow")]);

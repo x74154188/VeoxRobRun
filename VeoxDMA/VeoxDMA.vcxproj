@@ -211,6 +211,7 @@ if exist "$(SolutionDir)tools\abcurves_continuous.bin" copy /y "$(SolutionDir)to
     <ClCompile Include="Esp\WorldEsp.cpp" />
     <ClCompile Include="Misc\Colour.cpp" />
     <ClCompile Include="UI\VeoxMenu.cpp" />
+    <ClCompile Include="UI\EspFont.cpp" />
     <ClCompile Include="UI\imgui_edited.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
@@ -262,6 +263,7 @@ if exist "$(SolutionDir)tools\abcurves_continuous.bin" copy /y "$(SolutionDir)to
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Config\ConfigInstance.h" />
+    <ClInclude Include="UI\EspFont.h" />
     <ClInclude Include="Config\ConfigFile.h" />
     <ClInclude Include="Config\PlayerConfig.h" />
     <ClInclude Include="Config\OverlayConfig.h" />

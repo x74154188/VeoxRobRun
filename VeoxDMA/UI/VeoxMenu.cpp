@@ -20,6 +20,8 @@ static std::wstring PickConfigPath(bool save)
 
 #pragma comment(lib, "comdlg32.lib")
 #include "VeoxMenu.h"
+#include "EspFont.h"
+#include "../ImGUI/imgui_impl_dx11.h"
 #include "ConfigInstance.h"
 #include "ConfigFile.h"
 #include "RobRunReader.h"
@@ -246,6 +248,7 @@ constexpr SubTabDef kMiscSubs[] = {
 constexpr SubTabDef kSettingsSubs[] = {
 	{ "Overlay & Hotkeys", IconKind::Settings },
 	{ "Configs & Status",  IconKind::File },
+	{ "ESP Font",          IconKind::Palette },
 };
 
 const SubTabDef* GetSubs(int tab, int& count)
@@ -375,6 +378,8 @@ constexpr SearchEntry kSearchIndex[] = {
 	// Settings -> Configs & Status
 	{ "Config Profiles", 5, 1 }, { "Save", 5, 1 }, { "Load", 5, 1 },
 	{ "Connection Status", 5, 1 }, { "Re-attach Game", 5, 1 },
+	// Settings -> ESP Font
+	{ "ESP Font", 5, 2 }, { "Choose Font File...", 5, 2 }, { "Reset ESP Font", 5, 2 },
 };
 
 // ---- helpers --------------------------------------------------------------
@@ -3727,6 +3732,52 @@ void DrawSettingsOverlay()
 	ImGui::EndGroup();
 }
 
+void DrawSettingsEspFont()
+{
+	BeginCard("ESP Font", IconKind::Palette, ImGui::GetContentRegionAvail().x, kAvailH,
+		false, nullptr, true);
+	Note("Applies to ESP text only. Existing text-size settings still apply.");
+	Note("Supports .ttf, .otf and .ttc files. Missing Chinese glyphs use a system Chinese font.");
+	auto& path = ConfigInstance.Overlay.EspFontPath;
+	if (InlineButton("Choose Font File...", 180.f, true)) {
+		const std::string selected = EspFont::PickFile(ImGui::GetMainViewport()->PlatformHandleRaw,
+			Localization::IsChinese(), path);
+		if (!selected.empty()) {
+			path = selected;
+			EspFont::RequestReload();
+			g_dirty = true;
+		}
+	}
+	ImGui::SameLine(0.f, 8.f);
+	ImGui::BeginDisabled(path.empty());
+	if (InlineButton("Reset ESP Font", 150.f)) {
+		path.clear();
+		EspFont::RequestReload();
+		g_dirty = true;
+	}
+	ImGui::EndDisabled();
+	Note(EspFont::StatusKey());
+	if (!path.empty()) {
+		// A user's path is data, never a format string or a translation target.
+		ImGui::PushFont(font::inter_medium_small);
+		ImGui::PushTextWrapPos(0.f);
+		ImGui::TextUnformatted(path.c_str());
+		ImGui::PopTextWrapPos();
+		ImGui::PopFont();
+	}
+	Note("Saved with the current configuration. TTC collections use the first face.");
+	ImGui::Separator();
+	SectionLabel("ESP Font Preview");
+	ImFont* preview = EspFont::Get() ? EspFont::Get() : ImGui::GetFont();
+	const char* sample = Localization::Tr("Player / Loot / Vehicle 123 ABC");
+	for (const float size : { 14.f, 20.f, 28.f }) {
+		const ImVec2 p = ImGui::GetCursorScreenPos();
+		ImGui::GetWindowDrawList()->AddText(preview, size, p, C(kText), sample);
+		ImGui::Dummy(ImVec2(0.f, size + 8.f));
+	}
+	EndCard();
+}
+
 void DrawSettingsConfigs(bool attached, const std::string& statusText)
 {
 	static std::vector<std::string> configs;
@@ -4315,9 +4366,12 @@ void ApplyStyleColors()
 	colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0, 0, 0, 0.45f);
 }
 
-void Init()
+static void LoadFonts()
 {
 	ImGuiIO& io = ImGui::GetIO();
+	io.FontDefault = nullptr;
+	io.Fonts->Clear();
+	for (auto& entry : g_fonts) entry.ptr = nullptr;
 
 	static ImWchar glyphRanges[] = { 0x0020, 0x00FF, 0x2000, 0x206F, 0xE000, 0xF8FF, 0 };
 	const ImWchar* chineseRanges = io.Fonts->GetGlyphRangesChineseFull();
@@ -4369,6 +4423,20 @@ void Init()
 		SyncFontFromConfig();
 	}
 
+	EspFont::AddToAtlas(*io.Fonts);
+}
+
+void UpdateFonts()
+{
+	if (!EspFont::Prepare(ConfigInstance.Overlay.EspFontPath)) return;
+	ImGui_ImplDX11_InvalidateDeviceObjects();
+	LoadFonts();
+}
+
+void Init()
+{
+	EspFont::Prepare(ConfigInstance.Overlay.EspFontPath);
+	LoadFonts();
 	ImGuiStyle& style = ImGui::GetStyle();
 	style.WindowRounding = 10.f;
 	style.ChildRounding = 8.f;
@@ -4547,7 +4615,8 @@ void Draw(bool attached, const std::string& statusText)
 			break;
 		case 5:
 			if (sub == 0) DrawSettingsOverlay();
-			else DrawSettingsConfigs(attached, statusText);
+			else if (sub == 1) DrawSettingsConfigs(attached, statusText);
+			else DrawSettingsEspFont();
 			break;
 		default: break;
 		}

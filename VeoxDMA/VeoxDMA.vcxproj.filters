@@ -306,12 +306,14 @@
     <ClCompile Include="Security\LicenseAuth.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="Security\AuthController.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="Security\ConsoleLogin.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="Security\ConsoleInput.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="$(BaoBaoAuthCppDir)\src\BaoBaoAuth.cpp"><Filter>Source Files</Filter></ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Security\LicenseAuth.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="Security\AuthController.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="Security\ConsoleLogin.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="Security\ConsoleInput.h"><Filter>Header Files</Filter></ClInclude>
 
   </ItemGroup>
 </Project>

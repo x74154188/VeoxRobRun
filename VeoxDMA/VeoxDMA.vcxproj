@@ -185,6 +185,7 @@ if exist "$(SolutionDir)tools\abcurves_continuous.bin" copy /y "$(SolutionDir)to
     <ClCompile Include="Security\LicenseAuth.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
     <ClCompile Include="Security\AuthController.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
     <ClCompile Include="Security\ConsoleLogin.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="Security\ConsoleInput.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
     <ClCompile Include="$(BaoBaoAuthCppDir)\src\BaoBaoAuth.cpp" Condition="'$(Platform)'=='x64'">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -367,6 +368,7 @@ if exist "$(SolutionDir)tools\abcurves_continuous.bin" copy /y "$(SolutionDir)to
     <ClInclude Include="Security\LicenseAuth.h" />
     <ClInclude Include="Security\AuthController.h" />
     <ClInclude Include="Security\ConsoleLogin.h" />
+    <ClInclude Include="Security\ConsoleInput.h" />
 
   </ItemGroup>
   <Target Name="RequireBaoBaoNativeSdk" BeforeTargets="PrepareForBuild" Condition="'$(Platform)'=='x64'">

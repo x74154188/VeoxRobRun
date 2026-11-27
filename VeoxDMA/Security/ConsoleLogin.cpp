@@ -3,6 +3,7 @@
 #include <Windows.h>
 #include "ConsoleLogin.h"
 #include "AuthController.h"
+#include "ConsoleInput.h"
 #include <cstdio>
 #include <iostream>
 #include <string>
@@ -20,7 +21,7 @@ std::string Trim(const std::string& value)
     return start == std::string::npos ? std::string{} : value.substr(start, value.find_last_not_of(" \t\r\n") - start + 1);
 }
 bool ReadLine(std::istream& in, std::ostream& out, const char* prompt, std::string& value,
-    const std::function<void(bool)>& inputMode = {})
+    const std::function<void(bool)>& inputMode = {}, const NativeLineReader& reader = {}, bool secret = false)
 {
     out << prompt << std::flush;
     struct Mode {
@@ -28,8 +29,8 @@ bool ReadLine(std::istream& in, std::ostream& out, const char* prompt, std::stri
         Mode(const std::function<void(bool)>& fn) : set(fn) { if (set) set(true); }
         ~Mode() { if (set) set(false); }
     } mode(inputMode);
-    const bool read = static_cast<bool>(std::getline(in, value));
-    if (inputMode) out << '\n';
+    const bool read = reader ? reader(secret, value) : static_cast<bool>(std::getline(in, value));
+    if (inputMode && !reader) out << '\n';
     return read;
 }
 void PrintStatus(Controller& controller, std::ostream& out)
@@ -49,7 +50,7 @@ bool Authenticate(Controller& controller, const std::string& key, bool activate,
 }
 
 bool RunConsoleLogin(Controller& controller, const std::filesystem::path& path,
-    std::istream& in, std::ostream& out, const std::function<void(bool)>& inputMode)
+    std::istream& in, std::ostream& out, const std::function<void(bool)>& inputMode, const NativeLineReader& reader)
 {
     Key remembered;
     try {
@@ -66,7 +67,7 @@ bool RunConsoleLogin(Controller& controller, const std::filesystem::path& path,
             "4. 解绑卡密\n5. 退出\n6. 清除本地记住的卡密\n";
         PrintStatus(controller, out);
         std::string choice;
-        if (!ReadLine(in, out, "请选择 [1-6]：", choice)) { controller.Cancel(); return false; }
+        if (!ReadLine(in, out, "请选择 [1-6]：", choice, {}, reader)) { controller.Cancel(); return false; }
         choice = Trim(choice);
         if (choice == "1") {
             if (controller.IsAuthorized()) { out << "授权有效，正在启动程序…\n" << std::flush; return true; }
@@ -75,7 +76,7 @@ bool RunConsoleLogin(Controller& controller, const std::filesystem::path& path,
             Key key;
             if (choice == "2" && !remembered.value.empty()) key.value = remembered.value;
             else {
-                if (!ReadLine(in, out, "请输入卡密：", key.value, inputMode)) { controller.Cancel(); return false; }
+                if (!ReadLine(in, out, "请输入卡密（Ctrl+V / Shift+Insert / 右键粘贴，回车确认）：", key.value, inputMode, reader, true)) { controller.Cancel(); return false; }
                 key.value = Trim(key.value);
             }
             if (key.value.empty() || key.value.size() > 2048) { out << "请输入有效卡密。\n"; continue; }
@@ -91,16 +92,16 @@ bool RunConsoleLogin(Controller& controller, const std::filesystem::path& path,
             Key key;
             std::string answer;
             if (!remembered.value.empty()) {
-                if (!ReadLine(in, out, "使用记住的卡密解绑？[Y/n]：", answer)) { controller.Cancel(); return false; }
+                if (!ReadLine(in, out, "使用记住的卡密解绑？[Y/n]：", answer, {}, reader)) { controller.Cancel(); return false; }
                 answer = Trim(answer);
                 if (answer.empty() || answer == "Y" || answer == "y") key.value = remembered.value;
             }
             if (key.value.empty()) {
-                if (!ReadLine(in, out, "请输入要解绑的卡密：", key.value, inputMode)) { controller.Cancel(); return false; }
+                if (!ReadLine(in, out, "请输入要解绑的卡密（支持 Ctrl+V 粘贴）：", key.value, inputMode, reader, true)) { controller.Cancel(); return false; }
                 key.value = Trim(key.value);
             }
             if (key.value.empty() || key.value.size() > 2048) { out << "请输入有效卡密。\n"; continue; }
-            if (!ReadLine(in, out, "解绑将注销授权，服务器会扣除 3 小时时长。确认解绑？[y/N]：", answer)) {
+            if (!ReadLine(in, out, "解绑将注销授权，服务器会扣除 3 小时时长。确认解绑？[y/N]：", answer, {}, reader)) {
                 controller.Cancel(); return false;
             }
             answer = Trim(answer);
@@ -134,10 +135,19 @@ bool ShowConsoleLogin(std::shared_ptr<Controller> controller, const std::filesys
     SetConsoleTitleW(L"VeoxRobRun - License Console");
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
-    const HANDLE input = GetStdHandle(STD_INPUT_HANDLE);
-    DWORD mode = 0;
-    const bool hasMode = GetConsoleMode(input, &mode) != FALSE;
-    auto keyMode = [=](bool hidden) { if (hasMode) SetConsoleMode(input, hidden ? mode & ~ENABLE_ECHO_INPUT : mode); };
-    return RunConsoleLogin(*controller, path, std::cin, std::cout, keyMode);
+    // Open the console devices directly; do not depend on redirected/stale CRT stdin.
+    const HANDLE input = CreateFileW(L"CONIN$", GENERIC_READ | GENERIC_WRITE,
+        FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+    const HANDLE output = CreateFileW(L"CONOUT$", GENERIC_READ | GENERIC_WRITE,
+        FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+    struct Handles {
+        HANDLE input, output;
+        ~Handles() { if (input != INVALID_HANDLE_VALUE) CloseHandle(input); if (output != INVALID_HANDLE_VALUE) CloseHandle(output); }
+    } handles{input, output};
+    if (input == INVALID_HANDLE_VALUE || output == INVALID_HANDLE_VALUE) return false;
+    const NativeLineReader reader = [=](bool secret, std::string& value) {
+        return ReadNativeConsoleLine(input, output, secret, value);
+    };
+    return RunConsoleLogin(*controller, path, std::cin, std::cout, {}, reader);
 }
 }

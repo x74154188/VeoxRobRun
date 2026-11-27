@@ -37,7 +37,10 @@ overlay DLLs/maps/fonts as before; do not distribute the old `auth` folder.
   leaves the menu open for another login or unbind; offline startup is denied.
 - The console displays the server's `expires_at` text after successful login /
   verification and refreshes it from heartbeat responses. A missing value is
-  explicitly reported, never estimated. Card input is hidden and never printed.
+  explicitly reported, never estimated. Card input is shown in plaintext in the
+  console. Ctrl+V, Shift+Insert and right-click paste are handled explicitly.
+  Input reads native Windows console events instead of CRT stdin; Quick Edit
+  selection and VT conversion are temporarily disabled while entering a line.
 - Unbind requires confirmation (the current server deducts three hours), calls
   the SDK, stops heartbeat and revokes local authorization even on failure.
   Success clears the corresponding saved card; unbinding a different manually

@@ -7,6 +7,7 @@
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
+#include <vector>
 
 using namespace LicenseAuth;
 using BaoBao::Auth::AuthResponse;
@@ -64,7 +65,7 @@ int main() {
     check(manual.cached == TestCard && manual.key == TestCard, "successful card automatically saved after trim");
     check(manual.raw.find(TestCard) == std::string::npos && !manual.raw.empty(), "real DPAPI cache has no plaintext card");
     check(manual.text.find("2030-12-31 23:59:59") != std::string::npos, "server expiry displayed");
-    check(manual.text.find(TestCard) == std::string::npos && manual.modes == 2, "card input hidden and absent from output");
+    check(manual.text.find(TestCard) == std::string::npos && manual.modes == 2, "synthetic card input excluded from status logs and hooks paired");
     const auto remembered = run("1\n", true);
     check(remembered.start && remembered.verifies == 1 && remembered.activations == 0, "next launch verifies saved card without activation");
     check(remembered.key == TestCard, "remembered DPAPI card loaded correctly");
@@ -108,6 +109,22 @@ int main() {
         check(c.Authenticate(c.BeginAttempt(), TestCard), "relogin after unbind");
         check(c.Unbind("  CARD  ").success && f->key == "CARD" && !c.IsAuthorized(), "unbind trims card and revokes");
         c.Shutdown(); check(!c.Unbind(TestCard).success && f->unbinds == 1, "shutdown blocks unbind calls");
+    }
+    {
+        auto service = std::make_unique<Fake>(); auto* f = service.get(); Controller c(std::move(service));
+        const auto path = dir/L"native-reader.dat";
+        std::istringstream broken; broken.setstate(std::ios::failbit);
+        std::ostringstream out;
+        const std::vector<std::string> lines{"3",TestCard,"1"};
+        std::size_t at=0; int cardFields=0;
+        const bool started=RunConsoleLogin(c,path,broken,out,{},[&](bool card,std::string& value) {
+            if (at==lines.size()) return false;
+            if (card) ++cardFields;
+            value=lines[at++]; return true;
+        });
+        check(started && f->key==TestCard && f->activations==1 && cardFields==1,
+            "native reader bypasses failed CRT input for menu, card and start");
+        std::filesystem::remove(path);
     }
     std::filesystem::remove(dir);
     std::cout << (failures ? "FAIL" : "PASS") << ": console auth workflows; " << checks << " checks; " << failures << " failures\n";

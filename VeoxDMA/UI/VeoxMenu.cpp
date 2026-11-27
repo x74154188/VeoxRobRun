@@ -28,6 +28,7 @@ static std::wstring PickConfigPath(bool save)
 #include "Il2Cpp.h"
 #include "SkinChanger.h"
 #include "DeviceSession.h"
+#include "ABCurves/ABCurvesPlanner.h"
 #include "InputManager.h"
 #include "../Aim/AimController.h"
 #include "../Overlay/Overlay.h"
@@ -309,7 +310,9 @@ constexpr SearchEntry kSearchIndex[] = {
 	{ "Dual Gamepad Key", 0, 3 }, { "Gamepad Aim Key", 0, 3 }, { "Trigger Threshold", 0, 3 },
 	{ "Stick Deadzone", 0, 3 }, { "Require Stick Move", 0, 3 }, { "Stick Output Scale", 0, 3 },
 	// Visuals -> Player ESP
-	{ "Hide Teammates", 1, 0 }, { "Hidden Player ESP", 1, 0 }, { "Box ESP", 1, 0 },
+	{ "Hide Teammates", 1, 0 }, { "Team Handling", 1, 0 }, { "Teammate Box", 1, 0 },
+	{ "Teammate Bones", 1, 0 }, { "Teammate Color", 1, 0 }, { "Mark Players as Team", 1, 0 },
+	{ "Hidden Player ESP", 1, 0 }, { "Box ESP", 1, 0 },
 	{ "Health", 1, 0 }, { "Distance", 1, 0 }, { "Snaplines", 1, 0 }, { "Snapline Origin", 1, 0 },
 	{ "Off-Screen Indicators", 1, 0 }, { "Head Hitbox Dot", 1, 0 }, { "Dot Radius", 1, 0 },
 	{ "Weapon Name", 1, 0 }, { "Weapon Sprite", 1, 0 }, { "Max Distance (Player)", 1, 0, "Max Distance" },
@@ -1669,7 +1672,7 @@ void DrawAimGeneral()
 	static const char* aimTypes[] = { "Memory Aim", "Hardware Aim" };
 	static const char* kBones[] = { "Head", "Neck", "Chest", "Pelvis", "Closest", "Head & Body" };
 	static const char* priorities[] = { "Crosshair FOV", "3D Distance", "Lowest Health" };
-	static const char* kSmoothAlgos[] = { "EMA", "Linear", "Bezier" };
+	static const char* kSmoothAlgos[] = { "EMA", "Linear", "Bezier", "ABCurves" };
 
 	ImGui::BeginGroup();
 	{
@@ -1709,8 +1712,17 @@ void DrawAimGeneral()
 		SliderIntRow("Smoothness", &ConfigInstance.Aim.Smoothness, 1, 100);
 		if (ConfigInstance.Aim.SmoothAlgorithm == 2)
 			SliderFloatRow("Bezier Arc", &ConfigInstance.Aim.BezierBend, 0.0f, 1.0f);
-		if (ConfigInstance.Aim.SmoothAlgorithm == 1 || ConfigInstance.Aim.SmoothAlgorithm == 2)
+		if (ConfigInstance.Aim.SmoothAlgorithm == 1 || ConfigInstance.Aim.SmoothAlgorithm == 2 || ConfigInstance.Aim.SmoothAlgorithm == 3)
 			SliderFloatRow("Curve Speed", &ConfigInstance.Aim.BezierSpeed, 0.25f, 3.0f, "x");
+		if (ConfigInstance.Aim.SmoothAlgorithm == 3) {
+			SliderFloatRow("ABCurves Scale", &ConfigInstance.Aim.ABCurvesScale, 0.25f, 4.0f, "x");
+			Note("ABCurves Planner: %s", Localization::Tr(Base::ABCurves::ContinuousStream::Available()
+				? "ready (abcurves_continuous.bin)"
+				: "missing abcurves_continuous.bin (Bezier fallback)"));
+		}
+		ToggleRow("ABCurves Packet Renderer", &ConfigInstance.Aim.ABCurvesRenderer);
+		if (ConfigInstance.Aim.ABCurvesRenderer)
+			Note("1 kHz GRU packet texture active for Hardware/Cursor output.");
 		if (ConfigInstance.Aim.AimType == 1)
 			SliderFloatRow("Hardware Gain", &ConfigInstance.Aim.HardwareGain, 0.25f, 5.0f, "x");
 		SliderFloatRow("Aim Deadzone", &ConfigInstance.Aim.DeadzonePx, 0.0f, 25.0f, " px");
@@ -1729,7 +1741,7 @@ void DrawAimGeneral()
 
 void DrawAimTargetsRecoil()
 {
-	static const char* kSmoothAlgos[] = { "EMA", "Linear", "Bezier" };
+	static const char* kSmoothAlgos[] = { "EMA", "Linear", "Bezier", "ABCurves" };
 
 	ImGui::BeginGroup();
 	{
@@ -1771,7 +1783,7 @@ void DrawAimTargetsRecoil()
 		BeginCard("Live State", IconKind::Aim, kCardW);
 		{
 			const Aim::DebugInfo info = Aim::GetDebug();
-			const char* curveLabel = (info.smoothAlgorithm >= 0 && info.smoothAlgorithm < 3)
+			const char* curveLabel = (info.smoothAlgorithm >= 0 && info.smoothAlgorithm < 4)
 				? kSmoothAlgos[info.smoothAlgorithm] : "EMA";
 			const char* clsLabel = (info.activeWeaponClass >= 0 && info.activeWeaponClass < Aim::WeaponClassCount())
 				? Aim::WeaponClassNames()[info.activeWeaponClass] : "Default";
@@ -1845,8 +1857,8 @@ void DrawAimTriggerbot()
 			if (ComboRow("Profile Bone", &boneUi, kProfileBones, IM_ARRAYSIZE(kProfileBones)))
 				wp.TargetBone = boneUi - 1;
 
-			static const char* kProfileCurves[] = { "Inherit", "EMA", "Linear", "Bezier" };
-			int curveUi = std::clamp(wp.SmoothAlgorithmOverride + 1, 0, 3);
+			static const char* kProfileCurves[] = { "Inherit", "EMA", "Linear", "Bezier", "ABCurves" };
+			int curveUi = std::clamp(wp.SmoothAlgorithmOverride + 1, 0, 4);
 			if (ComboRow("Profile Curve", &curveUi, kProfileCurves, IM_ARRAYSIZE(kProfileCurves)))
 				wp.SmoothAlgorithmOverride = curveUi - 1;
 
@@ -1922,14 +1934,18 @@ void DrawAimHardwarePad()
 	static const DeviceKind deviceKinds[] = { DeviceKind::Off, DeviceKind::KmboxUsb, DeviceKind::KmboxNet,
 		DeviceKind::Makcu, DeviceKind::Controller, DeviceKind::Ferrum, DeviceKind::Medius,
 		DeviceKind::KmboxNbPro };
-	static const int baudRates[] = { 115200, 921600, 1500000, 2000000, 3000000, 4000000 };
-	static const char* baudLabels[] = { "115200", "921600", "1500000", "2000000", "3000000", "4000000" };
+	static const int baudRates[] = { 115200, 921600, 1500000, 2000000, 3000000, 4000000, 6000000, 9600 };
+	static const char* baudLabels[] = { "115200", "921600", "1500000", "2000000", "3000000", "4000000", "6000000", "9600" };
+	static const char* ctrlBaudLabels[] = { "115200", "4000000" };
 	static const char* kControllerSlots[] = { "Auto (0-3)", "Pad 1", "Pad 2", "Pad 3", "Pad 4" };
 
 	ImGui::BeginGroup();
 	{
 		BeginCard("Hardware Device", IconKind::Cpu, kCardW, 0.f, false, nullptr, true);
-		ComboRow("Device", &deviceIndex, deviceNames, IM_ARRAYSIZE(deviceNames));
+		if (ComboRow("Device", &deviceIndex, deviceNames, IM_ARRAYSIZE(deviceNames))) {
+			Session().Disconnect();
+			needsRefresh = true;
+		}
 
 		const auto kind = deviceKinds[ImClamp(deviceIndex, 0, (int)IM_ARRAYSIZE(deviceKinds) - 1)];
 		const bool isNet = IsNetworkDevice(kind);
@@ -1952,11 +1968,19 @@ void DrawAimHardwarePad()
 			if (needsRefresh) { Session().RefreshPorts(); needsRefresh = false; }
 			const auto& ports = Session().GetPorts();
 
-			ToggleRow("Manual COM Port", &manualPort);
+			if (kind == DeviceKind::Ferrum) {
+				if (ToggleRow("Ferrum Controller", &ferrumController))
+					Session().Disconnect();
+				Note("Use the COM port shown in Ferrum Utility > Serial API (e.g. COM20). Controller mode needs Ferrum 2.0.4+.");
+			}
+
+			if (kind != DeviceKind::Ferrum)
+				ToggleRow("Manual COM Port", &manualPort);
 			if (manualPort || kind == DeviceKind::Ferrum)
 			{
 				ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-				if (ImGui::InputTextWithHint("##com", Localization::Tr("COM3"), comPort, sizeof(comPort))) g_dirty = true;
+				const char* hint = (kind == DeviceKind::Ferrum) ? "COM20 (Ferrum Serial API)" : "COM3";
+				if (ImGui::InputTextWithHint("##com", Localization::Tr(hint), comPort, sizeof(comPort))) g_dirty = true;
 			}
 			else if (!ports.empty())
 			{
@@ -1978,10 +2002,17 @@ void DrawAimHardwarePad()
 				Note("No COM ports found.");
 			}
 
-			if (IsMakcu(kind))
+			if (kind == DeviceKind::Controller) {
+				int ctrlSel = (baudIndex == 5) ? 1 : 0;
+				if (ComboRow("Baud Rate", &ctrlSel, ctrlBaudLabels, IM_ARRAYSIZE(ctrlBaudLabels)))
+					baudIndex = (ctrlSel == 1) ? 5 : 0;
+			} else if (kind == DeviceKind::Makcu) {
+				baudIndex = ImClamp(baudIndex, 0, 5);
+				ComboRow("Baud Rate", &baudIndex, baudLabels, 6);
+			} else if (kind != DeviceKind::Medius) {
+				baudIndex = ImClamp(baudIndex, 0, (int)IM_ARRAYSIZE(baudLabels) - 1);
 				ComboRow("Baud Rate", &baudIndex, baudLabels, IM_ARRAYSIZE(baudLabels));
-			if (kind == DeviceKind::Ferrum)
-				ToggleRow("Ferrum Controller", &ferrumController);
+			}
 		}
 
 		const auto status = Session().GetStatus();
@@ -2079,7 +2110,6 @@ void DrawVisualsEsp()
 	ImGui::BeginGroup();
 	{
 		BeginCard("Player ESP", IconKind::Visuals, kCardW, 0.f, false, nullptr, true);
-		ToggleRow("Hide Teammates", &ConfigInstance.Player.HideTeammates);
 		ToggleRow("Hidden Player ESP", &ConfigInstance.Player.HiddenPlayerEsp);
 		ColorToggleRow("Box ESP", &ConfigInstance.Player.BoxEsp, ConfigInstance.Player.BoxColour);
 		ColorToggleRow("Health", &ConfigInstance.Player.Health, ConfigInstance.Player.HealthTextColour);
@@ -2091,6 +2121,107 @@ void DrawVisualsEsp()
 		ColorToggleRow("Head Hitbox Dot", &ConfigInstance.Player.HeadDot, ConfigInstance.Player.HeadDotColour);
 		if (ConfigInstance.Player.HeadDot)
 			SliderFloatRow("Dot Radius", &ConfigInstance.Player.HeadDotRadius, 1.5f, 8.0f, " px");
+		EndCard();
+
+		ImGui::Dummy(ImVec2(0.f, kCardGap - 7.f));
+		const int manualTeamCnt = ConfigInstance.Player.ManualTeammateCount();
+		char teamMeta[48]{};
+		if (manualTeamCnt > 0)
+			std::snprintf(teamMeta, sizeof(teamMeta), Localization::Tr("%d marked"), manualTeamCnt);
+		BeginCard("Team Handling", IconKind::Users, kCardW, 0.f, false, manualTeamCnt > 0 ? teamMeta : nullptr, true);
+		ToggleRow("Hide Teammates", &ConfigInstance.Player.HideTeammates);
+		if (!ConfigInstance.Player.HideTeammates)
+		{
+			ColorToggleRow("Teammate Box", &ConfigInstance.Player.TeammateBox, ConfigInstance.Player.TeammateBoxColour);
+			ColorToggleRow("Teammate Bones", &ConfigInstance.Player.TeammateSkeleton, ConfigInstance.Player.TeammateSkeletonColour);
+			ColorRow("Teammate Color", ConfigInstance.Player.TeammateColour);
+		}
+		Note("Auto-detects party, clan & police (when playing cop). Teammates skip VisCheck.");
+
+		SectionLabel("Mark Players as Team");
+		static char teamNameInput[64] = "";
+		const float availW = ImGui::GetContentRegionAvail().x;
+		const float clearW = manualTeamCnt > 0 ? 50.f : 0.f;
+		const float addW = 46.f;
+		ImGui::SetNextItemWidth(ImMax(80.f, availW - addW - (clearW > 0.f ? clearW + 12.f : 6.f)));
+		const bool submitted = ImGui::InputTextWithHint("##team_name_input", Localization::Tr("Add player name..."),
+			teamNameInput, sizeof(teamNameInput), ImGuiInputTextFlags_EnterReturnsTrue);
+		ImGui::SameLine(0.f, 6.f);
+		if ((ImGui::Button(Localization::Tr("Add##team_add"), ImVec2(addW, 24.f)) || submitted) && teamNameInput[0] != '\0') {
+			if (ConfigInstance.Player.AddManualTeammateName(teamNameInput))
+				g_dirty = true;
+			teamNameInput[0] = '\0';
+		}
+		if (manualTeamCnt > 0) {
+			ImGui::SameLine(0.f, 6.f);
+			if (ImGui::Button(Localization::Tr("Clear##team_clr"), ImVec2(clearW, 24.f))) {
+				ConfigInstance.Player.ClearManualTeammates();
+				g_dirty = true;
+			}
+		}
+
+		// Show manually added names with remove buttons
+		const auto savedTeamNames = ConfigInstance.Player.GetManualTeammateNames();
+		if (!savedTeamNames.empty()) {
+			for (size_t i = 0; i < savedTeamNames.size(); ++i) {
+				const std::string& nm = savedTeamNames[i];
+				ImGui::PushID((int)i + 9100);
+				ImGui::AlignTextToFramePadding();
+				ImGui::TextColored(kGreen, "%s", nm.c_str());
+				ImGui::SameLine(ImGui::GetContentRegionAvail().x - 16.f);
+				if (ImGui::SmallButton("x")) {
+					ConfigInstance.Player.RemoveManualTeammateName(nm);
+					g_dirty = true;
+				}
+				ImGui::PopID();
+			}
+		}
+
+		// Quick-mark list of live players currently on the map
+		auto snap = RobRunReader::GetSnapshot();
+		if (snap && !snap->entities.empty()) {
+			std::vector<const RobRunReader::EntityData*> others;
+			others.reserve(snap->entities.size());
+			for (const auto& e : snap->entities) {
+				if (e.entityId == snap->localEntityId) continue;
+				others.push_back(&e);
+			}
+			if (!others.empty()) {
+				const float listH = ImMin(120.f, (float)others.size() * 24.f + 6.f);
+				ImGui::BeginChild("##team_quick_list", ImVec2(0.f, listH), ImGuiChildFlags_None, ImGuiWindowFlags_NoSavedSettings);
+				for (size_t i = 0; i < others.size(); ++i) {
+					const auto& e = *others[i];
+					ImGui::PushID(e.entityId);
+					std::string disp = !e.nicknameUtf8.empty()
+						? e.nicknameUtf8
+						: (std::string(Localization::Tr("Player #")) + std::to_string(e.entityId));
+					const bool isAuto = e.isPartyMember || e.isClanMate || e.isPoliceMate;
+					const bool isManual = ConfigInstance.Player.IsManualTeammate(e.entityId, e.publicId, e.nicknameUtf8);
+					ImGui::AlignTextToFramePadding();
+					ImGui::TextColored((isAuto || isManual) ? kGreen : kTextMid, "%s", disp.c_str());
+					if (isAuto) {
+						ImGui::SameLine(0.f, 5.f);
+						const char* autoTag = e.isPartyMember ? "[PARTY]" : (e.isClanMate ? "[CLAN]" : "[COP]");
+						ImGui::TextColored(kTeal, "%s", Localization::Tr(autoTag));
+					}
+					const char* btnLbl = Localization::Tr(isManual ? "Unmark" : "Team");
+					const float bw = 54.f;
+					ImGui::SameLine(ImMax(120.f, ImGui::GetContentRegionAvail().x + ImGui::GetCursorPosX() - bw));
+					if (ImGui::SmallButton(btnLbl)) {
+						if (isManual) {
+							ConfigInstance.Player.SetManualTeammate(e.entityId, e.publicId, false);
+							if (!e.nicknameUtf8.empty())
+								ConfigInstance.Player.RemoveManualTeammateName(e.nicknameUtf8);
+						} else {
+							ConfigInstance.Player.SetManualTeammate(e.entityId, e.publicId, true);
+						}
+						g_dirty = true;
+					}
+					ImGui::PopID();
+				}
+				ImGui::EndChild();
+			}
+		}
 		EndCard();
 	}
 	ImGui::EndGroup();
@@ -2917,14 +3048,33 @@ void DrawRadar2DWeb()
 void DrawRadarInGameMap()
 {
 	static const char* kMapRarities[] = { "All", "Uncommon+", "Rare+", "Epic+", "Legendary+", "Mythical" };
+	static const char* kRoleCounterScopes[] = { "Full Map", "In 300m Radius" };
 
 	ImGui::BeginGroup();
 	{
-		BeginCard("Overlay Modes", IconKind::Map, kCardW);
+		BeginCard("Overlay Modes", IconKind::Map, kCardW, 0.f, false, nullptr, true);
 		ToggleRow("Top-Left Minimap", &ConfigInstance.Radar.InGameMinimap);
 		ToggleRow("Fullscreen Map (M)", &ConfigInstance.Radar.InGameFullMap);
 		ToggleRow("Hide 3D ESP on Full Map", &ConfigInstance.Radar.Hide3DEspOnFullMap);
 		SliderFloatRow("Icon Scale", &ConfigInstance.Radar.InGameMapScale, 0.5f, 2.0f, "x");
+		SectionLabel("Role Counters");
+		ToggleRow("Role Counters", &ConfigInstance.Radar.RoleCounters);
+		if (ConfigInstance.Radar.RoleCounters)
+		{
+			ComboRow("Counter Scope", &ConfigInstance.Radar.RoleCounterScope, kRoleCounterScopes, IM_ARRAYSIZE(kRoleCounterScopes));
+			ToggleRow("Show on Full Map (M)", &ConfigInstance.Radar.RoleCountersOnFullMap);
+			ToggleRow("Show on Minimap", &ConfigInstance.Radar.RoleCountersOnMinimap);
+			ToggleRow("Show on Web Radar", &ConfigInstance.Radar.RoleCountersOnWebRadar);
+			ColorRow("Police Counter", ConfigInstance.Radar.RoleCounterPoliceColour);
+			ColorRow("Civilian Counter", ConfigInstance.Radar.RoleCounterCivilianColour);
+			ColorRow("Criminal Counter", ConfigInstance.Radar.RoleCounterCriminalColour);
+		}
+		SectionLabel("Map Marker Colors");
+		ColorRow("Criminal Marker", ConfigInstance.Radar.MapCriminalColour);
+		ColorRow("Police Marker", ConfigInstance.Radar.MapPoliceColour);
+		ColorRow("Civilian Marker", ConfigInstance.Radar.MapCivilianColour);
+		ColorRow("Police Car", ConfigInstance.Radar.MapPoliceCarColour);
+		ColorRow("Teammate Marker", ConfigInstance.Player.TeammateColour);
 		SectionLabel("Live Map State");
 		if (const auto snap = RobRunReader::GetSnapshot()) {
 			if (snap->inGameMap.valid) {
@@ -3218,7 +3368,7 @@ void DrawMiscServer()
 	{
 		totalCount++;
 		if (ent.isDead) deadCount++; else aliveCount++;
-		if (ent.isPartyMember) partyCount++;
+		if (ent.IsTeammate()) partyCount++;
 
 		PlayerItem item;
 		item.ent = &ent;
@@ -3239,7 +3389,7 @@ void DrawMiscServer()
 		if (item.weapon.empty()) item.weapon = "None";
 
 		if (filterAliveOnly && ent.isDead) continue;
-		if (filterExcludeParty && ent.isPartyMember && !item.isLocal) continue;
+		if (filterExcludeParty && ent.IsTeammate() && !item.isLocal) continue;
 		if (filterExcludeSelf && item.isLocal) continue;
 		if (serverSearch[0]) {
 			std::string hay = item.name + " " + item.clan + " " + ent.roleName + " " + item.weapon;
@@ -3378,7 +3528,12 @@ void DrawMiscServer()
 				curX += TextW(font::inter_medium_small, cStr.c_str()) + 6.f;
 			}
 			if (item.isLocal) drawBadge(Localization::Tr("YOU"), kAccent);
-			else if (ent.isPartyMember) drawBadge(Localization::Tr("PARTY"), kGreen);
+			else {
+				if (ent.isPartyMember) drawBadge(Localization::Tr("PARTY"), kGreen);
+				else if (ent.isClanMate) drawBadge(Localization::Tr("CLAN"), kGreen);
+				else if (ent.isPoliceMate) drawBadge(Localization::Tr("COP TEAM"), kGreen);
+				if (ent.isManualTeammate) drawBadge(Localization::Tr("TEAM"), kGreen);
+			}
 			if (ent.isDead) drawBadge(Localization::Tr("DEAD"), kRed);
 			else if (ent.isKnockedDown || ent.isKnockedOut) drawBadge(Localization::Tr("KNOCKED"), kAmber);
 			if (ent.isAimingAtLocal) drawBadge(Localization::Tr("AIMING AT YOU"), kRed);
@@ -3386,7 +3541,7 @@ void DrawMiscServer()
 			const bool isTrusted = ConfigInstance.Aim.IsTrusted(ent.publicId);
 		if (isTrusted) drawBadge(Localization::Tr("TRUSTED"), kTeal);
 
-			// Right side: Trust toggle + Distance
+			// Right side: Team toggle + Trust toggle + Distance
 			const std::string distStr = FormatDistance(item.distance);
 			const float distW = TextW(font::inter_medium_small, distStr.c_str());
 			ImU32 distCol = C(kTextDim);
@@ -3397,10 +3552,11 @@ void DrawMiscServer()
 			dl->AddText(font::inter_medium_small, font::inter_medium_small->FontSize,
 				ImVec2(rightX - distW, line1Y + 1.f), distCol, distStr.c_str());
 
+			float nextBtnRight = rightX - distW - 8.f;
 			if (!item.isLocal && ent.publicId) {
 			const char* btnLabel = Localization::Tr(isTrusted ? "Untrust" : "Trust");
 				const float btnW = TextW(font::inter_medium_small, btnLabel) + 12.f;
-				const float btnX = rightX - distW - btnW - 8.f;
+				const float btnX = nextBtnRight - btnW;
 				const ImRect btnRect(ImVec2(btnX, line1Y - 1.f), ImVec2(btnX + btnW, line1Y + 16.f));
 				const bool btnHov = ImGui::IsMouseHoveringRect(btnRect.Min, btnRect.Max);
 				if (btnHov) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
@@ -3410,6 +3566,31 @@ void DrawMiscServer()
 					ImVec2(btnRect.Min.x + 6.f, btnRect.Min.y + 2.f), C(isTrusted ? kTeal : kTextMid), btnLabel);
 				if (btnHov && ImGui::IsMouseClicked(0)) {
 					ConfigInstance.Aim.SetTrusted(ent.publicId, !isTrusted);
+					g_dirty = true;
+				}
+				nextBtnRight = btnX - 6.f;
+			}
+			if (!item.isLocal) {
+				const bool isManualTeam = ConfigInstance.Player.IsManualTeammate(
+					ent.entityId, ent.publicId, ent.nicknameUtf8);
+				const char* tLabel = Localization::Tr(isManualTeam ? "Unmark" : "Team");
+				const float tW = TextW(font::inter_medium_small, tLabel) + 12.f;
+				const float tX = nextBtnRight - tW;
+				const ImRect tRect(ImVec2(tX, line1Y - 1.f), ImVec2(tX + tW, line1Y + 16.f));
+				const bool tHov = ImGui::IsMouseHoveringRect(tRect.Min, tRect.Max);
+				if (tHov) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+				dl->AddRectFilled(tRect.Min, tRect.Max, C(tHov ? kElevated : kControl), 4.f);
+				dl->AddRect(tRect.Min, tRect.Max, C(isManualTeam ? kGreen : kStroke), 4.f);
+				dl->AddText(font::inter_medium_small, font::inter_medium_small->FontSize * 0.92f,
+					ImVec2(tRect.Min.x + 6.f, tRect.Min.y + 2.f), C(isManualTeam ? kGreen : kTextMid), tLabel);
+				if (tHov && ImGui::IsMouseClicked(0)) {
+					if (isManualTeam) {
+						ConfigInstance.Player.SetManualTeammate(ent.entityId, ent.publicId, false);
+						if (!ent.nicknameUtf8.empty())
+							ConfigInstance.Player.RemoveManualTeammateName(ent.nicknameUtf8);
+					} else {
+						ConfigInstance.Player.SetManualTeammate(ent.entityId, ent.publicId, true);
+					}
 					g_dirty = true;
 				}
 			}

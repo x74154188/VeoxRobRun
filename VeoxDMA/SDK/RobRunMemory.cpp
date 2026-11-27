@@ -41,10 +41,13 @@ struct ListHeader {
 };
 static_assert(sizeof(ListHeader) == 0x10, "List header layout");
 
-bool ReadDictHeader(std::uintptr_t dictionary, DictHeader& out)
+bool ReadDictHeader(std::uintptr_t dictionary, DictHeader& out, bool fresh = false)
 {
     if (dictionary <= 0x10000) return false;
-    if (!ReadBytes(dictionary + rr::Dict::entries, &out, sizeof(out))) return false;
+    const bool ok = fresh
+        ? ReadBytesFresh(dictionary + rr::Dict::entries, &out, sizeof(out))
+        : ReadBytes(dictionary + rr::Dict::entries, &out, sizeof(out));
+    if (!ok) return false;
     return out.entries > 0x10000 && out.count >= 0 && out.count <= 65536;
 }
 
@@ -58,18 +61,25 @@ bool DictHeaderMatches(const DictHeader& before, const DictHeader& after,
 
 template <typename T>
 bool ReadDictOnce(std::uintptr_t dictionary, std::vector<T>& out,
-    bool requireStable)
+    bool requireStable, bool fresh = false)
 {
     out.clear();
     DictHeader header;
-    if (!ReadDictHeader(dictionary, header)) return false;
+    if (!ReadDictHeader(dictionary, header, fresh)) return false;
 
     // Read the backing-array length and the entries in one transaction. The
     // old path issued a separate read for capacity and another for the data.
     const std::size_t elementBytes =
         static_cast<std::size_t>(header.count) * sizeof(T);
     std::vector<unsigned char> raw(sizeof(std::uint64_t) + elementBytes);
-    if (!ReadBytes(header.entries + rr::Array::max_length, raw.data(), raw.size()))
+    bool readArrayOk = fresh
+        ? ReadBytesFresh(header.entries + rr::Array::max_length, raw.data(), raw.size())
+        : ReadBytes(header.entries + rr::Array::max_length, raw.data(), raw.size());
+    // Under NOPAGING_IO, a fresh read can fail if a tail page is paged out;
+    // fall back to the cached path rather than dropping the whole snapshot.
+    if (!readArrayOk && fresh)
+        readArrayOk = ReadBytes(header.entries + rr::Array::max_length, raw.data(), raw.size());
+    if (!readArrayOk)
         return false;
 
     std::uint64_t capacity = 0;
@@ -87,7 +97,7 @@ bool ReadDictOnce(std::uintptr_t dictionary, std::vector<T>& out,
     // changes are tolerated when the caller opts out of strict stability, which
     // the fast-moving world dictionaries do.
     DictHeader after;
-    if (!ReadDictHeader(dictionary, after) ||
+    if (!ReadDictHeader(dictionary, after, fresh) ||
         !DictHeaderMatches(header, after, requireStable))
         return false;
 
@@ -232,17 +242,86 @@ bool ReadDictInt(std::uintptr_t dictionary, std::vector<DictEntry>& out,
     // Retrying once recovers most transient failures instead of dropping the
     // whole collection for that pass.
     for (int attempt = 0; attempt < 2; ++attempt) {
-        if (ReadDictOnce(dictionary, out, requireStable)) return true;
+        if (ReadDictOnce(dictionary, out, requireStable, false)) return true;
     }
     out.clear();
     return false;
+}
+
+bool ReadDictIntVersioned(std::uintptr_t dictionary,
+    std::vector<DictEntry>& cachedEntries,
+    DictVersionStamp& stamp,
+    std::uint64_t checkIntervalMs)
+{
+    if (dictionary <= 0x10000) {
+        stamp.Reset();
+        cachedEntries.clear();
+        return false;
+    }
+
+    const std::uint64_t nowMs = GetTickCount64();
+    if (stamp.valid && stamp.dictionary == dictionary &&
+        nowMs >= stamp.lastCheckMs &&
+        (nowMs - stamp.lastCheckMs) < checkIntervalMs) {
+        return true;
+    }
+
+    // Probe only the 24-byte header fresh. If entries/count/version match the
+    // cached snapshot, skip transferring the backing array completely.
+    DictHeader liveHeader{};
+    bool headerFresh = ReadDictHeader(dictionary, liveHeader, true);
+    if (!headerFresh)
+        headerFresh = ReadDictHeader(dictionary, liveHeader, false);
+    if (!headerFresh) {
+        if (stamp.valid && stamp.dictionary == dictionary) {
+            stamp.lastCheckMs = nowMs;
+            return true;
+        }
+        return false;
+    }
+
+    if (stamp.valid && stamp.dictionary == dictionary &&
+        stamp.entries == liveHeader.entries &&
+        stamp.count == liveHeader.count &&
+        stamp.version == liveHeader.version) {
+        stamp.lastCheckMs = nowMs;
+        return true;
+    }
+
+    // Structural change (or initial read): pull a fresh validated snapshot.
+    std::vector<DictEntry> freshEntries;
+    bool ok = false;
+    for (int attempt = 0; attempt < 2 && !ok; ++attempt)
+        ok = ReadDictOnce(dictionary, freshEntries, true, true);
+    if (!ok)
+        ok = ReadDictOnce(dictionary, freshEntries, false, false);
+    if (!ok) {
+        if (stamp.valid && stamp.dictionary == dictionary) {
+            stamp.lastCheckMs = nowMs;
+            return true;
+        }
+        return false;
+    }
+
+    DictHeader confirmed{};
+    if (!ReadDictHeader(dictionary, confirmed, true))
+        confirmed = liveHeader;
+
+    cachedEntries = std::move(freshEntries);
+    stamp.dictionary = dictionary;
+    stamp.entries = confirmed.entries;
+    stamp.count = confirmed.count;
+    stamp.version = confirmed.version;
+    stamp.lastCheckMs = nowMs;
+    stamp.valid = true;
+    return true;
 }
 
 bool ReadDictRef(std::uintptr_t dictionary, std::vector<RefDictEntry>& out,
     bool requireStable)
 {
     for (int attempt = 0; attempt < 2; ++attempt) {
-        if (ReadDictOnce(dictionary, out, requireStable)) {
+        if (ReadDictOnce(dictionary, out, requireStable, false)) {
             // Reference dictionaries may legitimately hold a null value.
             out.erase(std::remove_if(out.begin(), out.end(),
                 [](const RefDictEntry& entry) {
@@ -261,37 +340,44 @@ bool ReadList(std::uintptr_t list, std::vector<std::uintptr_t>& out,
     out.clear();
     if (list <= 0x10000) return false;
 
-    ListHeader header;
-    if (!ReadBytes(list + rr::List::items, &header, sizeof(header)))
-        return false;
-    if (header.items <= 0x10000 || header.count < 0 || header.count > 65536)
-        return false;
-
-    const std::size_t elementBytes =
-        static_cast<std::size_t>(header.count) * sizeof(std::uintptr_t);
-    std::vector<unsigned char> raw(sizeof(std::uint64_t) + elementBytes);
-    if (!ReadBytes(header.items + rr::Array::max_length, raw.data(), raw.size()))
-        return false;
-
-    std::uint64_t capacity = 0;
-    std::memcpy(&capacity, raw.data(), sizeof(capacity));
-    if (capacity < static_cast<std::uint64_t>(header.count))
-        return false;
-
-    std::vector<std::uintptr_t> snapshot(static_cast<std::size_t>(header.count));
-    if (elementBytes)
-        std::memcpy(snapshot.data(), raw.data() + sizeof(capacity), elementBytes);
-
-    if (requireStable) {
-        ListHeader after;
-        if (!ReadBytes(list + rr::List::items, &after, sizeof(after)))
+    const int maxAttempts = requireStable ? 2 : 1;
+    for (int attempt = 0; attempt < maxAttempts; ++attempt) {
+        ListHeader header;
+        if (!ReadBytes(list + rr::List::items, &header, sizeof(header)))
+            continue;
+        if (header.items <= 0x10000 || header.count < 0 || header.count > 65536)
             return false;
-        if (after.items != header.items || after.count != header.count)
-            return false;
+
+        const std::size_t elementBytes =
+            static_cast<std::size_t>(header.count) * sizeof(std::uintptr_t);
+        std::vector<unsigned char> raw(sizeof(std::uint64_t) + elementBytes);
+        if (!ReadBytes(header.items + rr::Array::max_length, raw.data(), raw.size()))
+            continue;
+
+        std::uint64_t capacity = 0;
+        std::memcpy(&capacity, raw.data(), sizeof(capacity));
+        if (capacity < static_cast<std::uint64_t>(header.count) ||
+            capacity > 0x1000000ull)
+            continue;
+
+        std::vector<std::uintptr_t> snapshot(static_cast<std::size_t>(header.count));
+        if (elementBytes)
+            std::memcpy(snapshot.data(), raw.data() + sizeof(capacity), elementBytes);
+
+        if (requireStable) {
+            ListHeader after;
+            if (!ReadBytes(list + rr::List::items, &after, sizeof(after)))
+                continue;
+            if (after.items != header.items || after.count != header.count ||
+                after.version != header.version)
+                continue;
+        }
+
+        out = std::move(snapshot);
+        return true;
     }
-
-    out = std::move(snapshot);
-    return true;
+    out.clear();
+    return false;
 }
 
 } // namespace RobRunMemory

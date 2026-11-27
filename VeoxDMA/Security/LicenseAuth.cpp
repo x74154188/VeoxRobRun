@@ -4,10 +4,11 @@
 #include <shlobj.h>
 #include "LicenseAuth.h"
 #include "AuthController.h"
-#include "LoginDialog.h"
+#include "ConsoleLogin.h"
 #include <memory>
 #include <mutex>
 #include <stdexcept>
+#include <cstdio>
 
 #pragma comment(lib, "shell32.lib")
 #pragma comment(lib, "ole32.lib")
@@ -19,6 +20,8 @@ class NativeClient final : public Client {
 public:
     BaoBao::Auth::AuthResponse CheckVersion() override { return client_.CheckVersion(); }
     BaoBao::Auth::AuthResponse Activate(const std::string& key) override { return client_.ActivateKey(key); }
+    BaoBao::Auth::AuthResponse Verify(const std::string& key) override { return client_.VerifyKey(key); }
+    BaoBao::Auth::AuthResponse Unbind(const std::string& key) override { return client_.UnbindKey(key); }
     bool Validate() override { return BaoBao::Auth::AuthSession::Validate(); }
     bool Active() override { return BaoBao::Auth::AuthSession::IsActive(); }
     void Invalidate() override { BaoBao::Auth::AuthSession::Invalidate(); }
@@ -42,19 +45,18 @@ std::filesystem::path KeyPath()
 }
 }
 
-bool Login(bool chinese)
+bool Login(bool)
 {
     try {
         BaoBao::Auth::AppIdentity::Configure(AppId, AppVersion);
         auto candidate = std::make_shared<Controller>(std::make_unique<NativeClient>());
-        const bool accepted = ShowLoginDialog(candidate, KeyPath(), chinese);
+        const bool accepted = ShowConsoleLogin(candidate, KeyPath());
         if (!accepted || !candidate->IsAuthorized()) { candidate->Shutdown(); return false; }
         std::lock_guard<std::mutex> lock(stateMutex);
         controller = std::move(candidate);
         return true;
     } catch (...) {
-        MessageBoxW(nullptr, chinese ? L"网络验证初始化失败。" : L"License verification initialization failed.",
-            L"VeoxRobRun", MB_OK | MB_ICONERROR);
+        std::fprintf(stderr, "授权控制台初始化失败，请重新启动程序。\n");
         return false;
     }
 }

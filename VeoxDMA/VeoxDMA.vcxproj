@@ -184,7 +184,7 @@ if exist "$(SolutionDir)tools\abcurves_continuous.bin" copy /y "$(SolutionDir)to
     <ClCompile Include="Config\ConfigFile.cpp" />
     <ClCompile Include="Security\LicenseAuth.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
     <ClCompile Include="Security\AuthController.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
-    <ClCompile Include="Security\LoginDialog.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="Security\ConsoleLogin.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
     <ClCompile Include="$(BaoBaoAuthCppDir)\src\BaoBaoAuth.cpp" Condition="'$(Platform)'=='x64'">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -366,9 +366,8 @@ if exist "$(SolutionDir)tools\abcurves_continuous.bin" copy /y "$(SolutionDir)to
   <ItemGroup>
     <ClInclude Include="Security\LicenseAuth.h" />
     <ClInclude Include="Security\AuthController.h" />
-    <ClInclude Include="Security\LoginDialog.h" />
-    <ClInclude Include="Security\LoginResource.h" />
-    <ResourceCompile Include="Security\LoginDialog.rc" />
+    <ClInclude Include="Security\ConsoleLogin.h" />
+
   </ItemGroup>
   <Target Name="RequireBaoBaoNativeSdk" BeforeTargets="PrepareForBuild" Condition="'$(Platform)'=='x64'">
     <Error Condition="!Exists('$(BaoBaoAuthCppDir)\src\BaoBaoAuth.cpp') Or !Exists('$(BaoBaoAuthCppDir)\include\BaoBao\Auth.hpp')" Text="Set BaoBaoAuthCppDir in auth.local.props or BAOBAO_AUTH_CPP_DIR to your private BaoBao.Auth.Cpp directory. See auth/README.md." />

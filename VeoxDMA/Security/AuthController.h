@@ -17,6 +17,8 @@ public:
     virtual ~Client() = default;
     virtual BaoBao::Auth::AuthResponse CheckVersion() = 0;
     virtual BaoBao::Auth::AuthResponse Activate(const std::string& key) = 0;
+    virtual BaoBao::Auth::AuthResponse Verify(const std::string& key) = 0;
+    virtual BaoBao::Auth::AuthResponse Unbind(const std::string& key) = 0;
     virtual bool Validate() = 0;
     virtual bool Active() = 0;
     virtual void Invalidate() = 0;
@@ -34,12 +36,14 @@ public:
     ~Controller();
     Controller(const Controller&) = delete;
     Controller& operator=(const Controller&) = delete;
-    std::uint64_t BeginAttempt(); // Call on UI thread before launching async work.
-    bool Authenticate(std::uint64_t attempt, std::string key);
+    std::uint64_t BeginAttempt(); // Invalidates the previous attempt before work starts.
+    bool Authenticate(std::uint64_t attempt, std::string key, bool activate = true);
     bool IsAuthorized(); // Fast cached lease + SDK active flag; no HTTP/WMI here.
+    BaoBao::Auth::AuthResponse Unbind(const std::string& key);
     void Cancel();
     void Shutdown(); // Called after login task and business workers have stopped.
     std::string Message() const;
+    std::string ExpiresAt() const;
 private:
     bool Current(std::uint64_t attempt);
     void Revoke(std::uint64_t attempt, const std::string& message);
@@ -52,5 +56,6 @@ private:
     std::int64_t deadline_ = 0;
     bool active_ = false, stopped_ = false;
     std::string message_;
+    std::string expiresAt_;
 };
 }

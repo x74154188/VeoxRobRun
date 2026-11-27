@@ -71,6 +71,7 @@ std::uint64_t Controller::BeginAttempt()
     if (stopped_) return 0;
     active_ = false;
     message_.clear();
+    expiresAt_.clear();
     client_->Invalidate();
     return ++generation_;
 }
@@ -88,7 +89,7 @@ void Controller::Revoke(std::uint64_t attempt, const std::string& message)
     client_->Invalidate();
 }
 
-bool Controller::Authenticate(std::uint64_t attempt, std::string key)
+bool Controller::Authenticate(std::uint64_t attempt, std::string key, bool activate)
 {
     std::lock_guard<std::mutex> operation(operationMutex_);
     if (!Current(attempt)) return false;
@@ -98,10 +99,11 @@ bool Controller::Authenticate(std::uint64_t attempt, std::string key)
         return false;
     }
     try {
+        client_->StopHeartbeat();
         std::string reason;
         if (!VersionPermits(client_->CheckVersion(), reason)) { Revoke(attempt, reason); return false; }
         if (!Current(attempt)) { client_->Invalidate(); return false; }
-        const auto response = client_->Activate(key);
+        const auto response = activate ? client_->Activate(key) : client_->Verify(key);
         if (!Current(attempt)) { client_->Invalidate(); return false; }
         if (!VersionPermits(response, reason) || !client_->Validate()) {
             Revoke(attempt, reason.empty() ? "授权验证失败。" : reason);
@@ -112,6 +114,7 @@ bool Controller::Authenticate(std::uint64_t attempt, std::string key)
             if (attempt != generation_ || stopped_) { client_->Invalidate(); return false; }
             deadline_ = now_() + LeaseMilliseconds;
             message_ = response.message;
+            expiresAt_ = response.data ? response.data->expires_at : std::string{};
             active_ = true;
         }
         client_->StartHeartbeat(key, [this, attempt](const auto& result) { Heartbeat(attempt, result); });
@@ -132,6 +135,31 @@ bool Controller::IsAuthorized()
     client_->Invalidate();
     return false;
 }
+BaoBao::Auth::AuthResponse Controller::Unbind(const std::string& key)
+{
+    std::lock_guard<std::mutex> operation(operationMutex_);
+    BaoBao::Auth::AuthResponse response;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (stopped_) { response.message = "验证组件已关闭。"; return response; }
+        ++generation_;
+        active_ = false;
+        expiresAt_.clear();
+        client_->Invalidate();
+    }
+    try {
+        client_->StopHeartbeat();
+        const auto clean = Trim(key);
+        if (clean.empty() || clean.size() > 2048) response.message = "请输入有效卡密。";
+        else response = client_->Unbind(clean);
+    } catch (...) { response.message = "解绑请求异常，请检查网络后重试。"; }
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        client_->Invalidate();
+        message_ = response.message;
+    }
+    return response;
+}
 void Controller::Heartbeat(std::uint64_t attempt, const BaoBao::Auth::AuthResponse& response)
 {
     try {
@@ -146,6 +174,7 @@ void Controller::Heartbeat(std::uint64_t attempt, const BaoBao::Auth::AuthRespon
             return;
         }
         deadline_ = now_() + LeaseMilliseconds;
+        if (response.data && !response.data->expires_at.empty()) expiresAt_ = response.data->expires_at;
     } catch (...) { Revoke(attempt, "授权心跳异常，请重新登录。"); }
 }
 void Controller::Cancel()
@@ -174,5 +203,10 @@ std::string Controller::Message() const
 {
     std::lock_guard<std::mutex> lock(mutex_);
     return message_;
+}
+std::string Controller::ExpiresAt() const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    return expiresAt_;
 }
 }

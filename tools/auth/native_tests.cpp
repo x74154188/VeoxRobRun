@@ -3,7 +3,6 @@
 #include <Windows.h>
 #include "Security/AuthController.h"
 #include "Security/LicenseAuth.h"
-#include "Security/LoginResource.h"
 #include <atomic>
 #include <cstdio>
 #include <future>
@@ -42,6 +41,8 @@ struct Fake final : Client {
         valid = activation.success && permit;
         return activation;
     }
+    AuthResponse Verify(const std::string& key) override { return Activate(key); }
+    AuthResponse Unbind(const std::string&) override { valid = false; auto r = Ok(); return r; }
     bool Validate() override { return valid && permit; }
     bool Active() override { return valid; }
     void Invalidate() override { valid = false; }
@@ -52,7 +53,6 @@ struct Fake final : Client {
     void StopHeartbeat() override { ++stats->stopped; }
     void Emit(const AuthResponse& response) { valid = response.success && permit; callback(response); }
 };
-INT_PTR CALLBACK HiddenDialog(HWND, UINT, WPARAM, LPARAM) { return FALSE; }
 }
 
 int main()
@@ -105,8 +105,9 @@ int main()
             f->Emit(Ok());
             check(!controller.IsAuthorized() && !f->valid, "late success cannot revive revoked session");
             check(authenticate(controller), "explicit re-login allowed");
+            const int stopsBeforeShutdown = stats->stopped;
             controller.Shutdown(); controller.Shutdown();
-            check(!controller.IsAuthorized() && stats->stopped == 1, "shutdown idempotent");
+            check(!controller.IsAuthorized() && stats->stopped == stopsBeforeShutdown + 1, "shutdown idempotent");
             check(controller.BeginAttempt() == 0, "shutdown prevents new login");
         }
         check(stats->destroyed, "SDK adapter destroyed before controller state");
@@ -176,15 +177,6 @@ int main()
         check(!controller.IsAuthorized(), "UI cancel remains responsive during synchronous HTTP");
         release.set_value();
         check(!work.get() && !f->valid, "in-flight request success rejected after cancellation");
-    }
-    const HWND dialog = CreateDialogParamW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_LICENSE), nullptr, HiddenDialog, 0);
-    check(dialog != nullptr, "native dialog resource loads without managed runtime");
-    if (dialog) {
-        check(!IsWindowVisible(dialog), "test dialog remains hidden");
-        check((GetWindowLongPtrW(GetDlgItem(dialog, IDC_LICENSE_KEY), GWL_STYLE) & ES_PASSWORD) != 0, "native key edit is masked");
-        check(GetDlgItem(dialog, IDOK) && GetDlgItem(dialog, IDCANCEL), "login and cancel controls exist");
-        check(GetDlgItem(dialog, IDC_LICENSE_REMEMBER) && GetDlgItem(dialog, IDC_LICENSE_STATUS), "remember and status controls exist");
-        check(DestroyWindow(dialog) != 0, "native test dialog closes");
     }
     std::printf("%s: native auth integration; %d checks; %d failures\n", failed ? "FAIL" : "PASS", checks, failed);
     return failed ? 1 : 0;

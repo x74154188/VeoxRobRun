@@ -21,19 +21,29 @@ overlay DLLs/maps/fonts as before; do not distribute the old `auth` folder.
 ## Behavior
 
 - App ID `rob_run`, version `1.0.0`, defined in `Security/AuthController.h`.
-- A native Win32 bilingual card-login dialog opens before DMA/device workers.
+- A Chinese console menu opens before DMA/device workers; there is no login dialog.
+  Choose 3 to enter and activate a card, then 1 to start. The menu also offers
+  online verification / expiry (2), unbind (4), exit (5 / 0), and forget (6).
 - Version/app policy, activation, response signatures, machine identity and
   SDK security checks use the original C++ SDK; no compatibility reimplementation.
 - The SDK sends an online heartbeat every 60 seconds. Failure revokes access.
   A 135-second monotonic lease also closes access if requests stall; a late
   success does not resurrect an expired or cancelled controller session.
 - Rendering stops and aim shuts down before a normal application exit on expiry.
-- Remembering a card uses SDK current-user DPAPI encryption at
+- Successful login or manual verification automatically remembers the card using
+  SDK current-user DPAPI encryption at
   `%LOCALAPPDATA%\VeoxRobRun\rob_run\license.dat`, compatible with the earlier
-  C# saved-card format. A saved card is only prefilled, never offline permission.
-- A worker handles synchronous SDK requests while the dialog remains responsive.
-  Cancel invalidates its attempt immediately and waits for any in-flight SDK
-  request to finish before closing. The SDK does not expose HTTP cancellation.
+  C# saved-card format. The next launch verifies that saved card online. Failure
+  leaves the menu open for another login or unbind; offline startup is denied.
+- The console displays the server's `expires_at` text after successful login /
+  verification and refreshes it from heartbeat responses. A missing value is
+  explicitly reported, never estimated. Card input is hidden and never printed.
+- Unbind requires confirmation (the current server deducts three hours), calls
+  the SDK, stops heartbeat and revokes local authorization even on failure.
+  Success clears the corresponding saved card; unbinding a different manually
+  entered card preserves the other remembered card. Forget only deletes cache.
+- Console requests use the synchronous SDK. The user can choose exit at the
+  menu or end console input. The SDK does not expose HTTP cancellation.
 - Default English and existing Chinese UI/font features remain unchanged.
 
 ## Tests
@@ -45,7 +55,7 @@ tools/auth/verify.ps1 -SdkSource <private BaoBao.Auth.Cpp directory> -OutputDire
 ```
 
 Tests use the real C++ SDK response types, protocol/DPAPI implementation and
-Win32 dialog resource, with a fake service for controller lifecycle cases. No
+console flow, with a fake service for controller lifecycle and menu cases. No
 production card, game/DMA process, remote server or security telemetry is used.
 The production adapter is compiled but not instantiated by offline tests.
 Live acceptance requires a valid `rob_run` card and server-side revoke test.

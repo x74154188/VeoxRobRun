@@ -19,6 +19,7 @@
 #include "Input/DeviceSession.h"
 #include "UI/VeoxMenu.h"
 #include "UI/EspFont.h"
+#include "Security/LicenseAuth.h"
 #include "ImGUI/imgui.h"
 #include "Overlay/Overlay.h"
 #include "Overlay/Backdrop.h"
@@ -159,6 +160,7 @@ static std::string GetAttachStatus()
 
 static bool AttachGame()
 {
+	if (!LicenseAuth::IsAuthorized()) return false;
 	SetStage("attach:process");
 	if (!TargetProcess.Init("ROB RUN.exe"))
 	{
@@ -195,6 +197,7 @@ static bool AttachGame()
 	printf("[Input] game PC keyboard %s\n",
 		keyboardReady ? "ready" : "unavailable (host/device input only)");
 	SetStage("attach:done");
+	if (!LicenseAuth::IsAuthorized() || g_stopAttach.load()) return false;
 	Diag("keyboard %s", keyboardReady ? "ready" : "unavailable");
 	SetAttachStatus("Attached.");
 	g_attached.store(true, std::memory_order_release);
@@ -351,6 +354,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 	Diag("config loaded");
 	DLOG("Config loaded");
 
+	// No device connection, reader or aim worker starts before online sign-in.
+	LicenseAuth::Lifetime licenseLifetime;
+	SetStage("license:login");
+	if (!LicenseAuth::Login(ConfigInstance.Overlay.ChineseLanguage)) return 2;
+	SetStage("license:ready");
+
 	StartAttachLoop();
 	DLOG("AttachLoop started");
 
@@ -403,10 +412,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 		DLOG("Overlay init callback done");
 	};
 	callbacks.tick = [] {
+		if (!LicenseAuth::IsAuthorized()) {
+			g_attached.store(false, std::memory_order_release);
+			g_stopAttach.store(true);
+			Aim::StopAimWorker();
+			Overlay::RequestExit();
+			return;
+		}
 		TickOverlay();
 		VeoxMenu::UpdateFonts();
 	};
 	callbacks.draw = [] {
+		if (!LicenseAuth::IsAuthorized()) return;
 		static int frameCount = 0;
 		++frameCount;
 		if (frameCount <= 3 || (frameCount % 500) == 0) {
@@ -505,5 +522,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 	FovChanger::Reset();
 	RobRunReader::Shutdown();
 	g_shutdownComplete.store(true, std::memory_order_release);
+	if (!LicenseAuth::IsAuthorized()) {
+		MessageBoxW(nullptr, ConfigInstance.Overlay.ChineseLanguage
+			? L"授权已失效或网络验证超时。功能已停止，请重新启动并登录。"
+			: L"License verification failed or timed out. Features stopped. Restart and sign in again.",
+			L"VeoxRobRun", MB_OK | MB_ICONINFORMATION);
+	}
 	return result;
 }

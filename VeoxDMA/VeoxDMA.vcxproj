@@ -70,6 +70,10 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <Import Project="$(SolutionDir)auth.local.props" Condition="Exists('$(SolutionDir)auth.local.props')" />
+  <PropertyGroup>
+    <BaoBaoAuthCoreDir Condition="'$(BaoBaoAuthCoreDir)'==''">$(BAOBAO_AUTH_CORE_DIR)</BaoBaoAuthCoreDir>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(SolutionDir)Build\$(Configuration)\$(ProjectName)\</OutDir>
     <IntDir>$(SolutionDir)Build\obj\$(ProjectName)\$(Configuration)\</IntDir>
@@ -185,6 +189,7 @@ if exist "$(SolutionDir)tools\abcurves_continuous.bin" copy /y "$(SolutionDir)to
     <ClCompile Include="Overlay\Overlay.cpp" />
     <ClCompile Include="Overlay\OverlayNotify.cpp" />
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="Security\LicenseAuth.cpp" />
     <ClCompile Include="Memory\Memory.cpp" />
     <ClCompile Include="Misc\CheatFunction.cpp" />
     <ClCompile Include="Misc\Input.cpp" />
@@ -339,6 +344,13 @@ if exist "$(SolutionDir)tools\abcurves_continuous.bin" copy /y "$(SolutionDir)to
     <ClInclude Include="ImGUI\imstb_truetype.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ItemGroup>
+    <ClInclude Include="Security\LicenseAuth.h" />
+  </ItemGroup>
+  <Target Name="StageBaoBaoAuth" AfterTargets="Build" Condition="'$(Platform)'=='x64'">
+    <Error Condition="'$(BaoBaoAuthCoreDir)'==''" Text="Set BaoBaoAuthCoreDir in auth.local.props or BAOBAO_AUTH_CORE_DIR. See auth/README.md." />
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(SolutionDir)tools\auth\build.ps1&quot; -CoreSource &quot;$(BaoBaoAuthCoreDir)&quot; -OutputDirectory &quot;$(OutDir)auth&quot; -Configuration &quot;$(Configuration)&quot;" />
+  </Target>
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>

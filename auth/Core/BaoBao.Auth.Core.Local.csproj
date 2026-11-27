@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>BaoBao.Auth.Core</AssemblyName>
+    <PlatformTarget>x64</PlatformTarget>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <!-- Link private SDK source at build time; never copy secrets into this repository. -->
+  <ItemGroup>
+    <Compile Include="$(BaoBaoAuthCoreDir)\*.cs" />
+    <PackageReference Include="System.Management" Version="10.0.8" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.4" />
+  </ItemGroup>
+  <Target Name="RequirePrivateCore" BeforeTargets="PrepareForBuild">
+    <Error Condition="!Exists('$(BaoBaoAuthCoreDir)\LicenseClient.cs')" Text="Set BaoBaoAuthCoreDir to your private BaoBao.Auth.Core source directory." />
+  </Target>
+</Project>

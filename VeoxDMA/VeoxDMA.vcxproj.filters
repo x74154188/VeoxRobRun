@@ -14,6 +14,9 @@
     <ClCompile Include="Esp\PlayerEsp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Security\LicenseAuth.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="UI\EspFont.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -299,6 +302,11 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ImGUI\imstb_truetype.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Security\LicenseAuth.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1,0 +1,5 @@
+<Project>
+  <PropertyGroup>
+    <BaoBaoAuthCoreDir>E:\path\to\BaoBao.Auth.Core</BaoBaoAuthCoreDir>
+  </PropertyGroup>
+</Project>

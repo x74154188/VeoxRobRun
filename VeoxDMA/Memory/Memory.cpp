@@ -8,6 +8,20 @@
 #include <chrono>
 #include <filesystem>
 #include <vector>
+
+namespace
+{
+	std::filesystem::path GetMemoryMapPath()
+	{
+		// Resolve the executable directory even when launched from another cwd.
+		std::vector<wchar_t> exePath(32768);
+		const DWORD length = GetModuleFileNameW(nullptr, exePath.data(), static_cast<DWORD>(exePath.size()));
+		if (length == 0 || length >= exePath.size())
+			return {};
+		return std::filesystem::path(exePath.data()).parent_path() / L"mmap.txt";
+	}
+}
+
 Memory::Memory()
 {
 	LOG("loading libraries...\n");
@@ -68,6 +82,13 @@ void Memory::ResetProcess()
 
 bool Memory::DumpMemoryMap(bool debug)
 {
+	const auto mapFile = GetMemoryMapPath();
+	if (mapFile.empty())
+	{
+		LOG("[!] Failed to resolve executable directory for memory map\n");
+		return false;
+	}
+	const auto mapPath = mapFile.string();
 	LPSTR args[] = { (LPSTR)"", (LPSTR)"-device", (LPSTR)"fpga://algo=0", (LPSTR)"", (LPSTR)"" };
 	int argc = 3;
 	if (debug)
@@ -116,8 +137,6 @@ bool Memory::DumpMemoryMap(bool debug)
 		sb << std::setfill('0') << std::setw(4) << i << "  " << std::hex << pPhysMemMap->pMap[i].pa << "  -  " << (pPhysMemMap->pMap[i].pa + pPhysMemMap->pMap[i].cb - 1) << "  ->  " << pPhysMemMap->pMap[i].pa << std::endl;
 	}
 
-	auto temp_path = std::filesystem::temp_directory_path();
-	const auto mapPath = (temp_path / "mmap.txt").string();
 	std::ofstream nFile(mapPath, std::ios::trunc);
 	if (!nFile.is_open())
 	{
@@ -206,14 +225,14 @@ bool Memory::Init(std::string process_name, bool memMap, bool debug)
 			std::string path = "";
 			if (memMap)
 			{
-				// Regenerate mmap.txt once per VeoxDMA launch (fresh for the
+				// Regenerate mmap.txt beside the executable once per launch (fresh for the
 				// target PC's current boot, without hammering VMMDLL open/close
 				// on every 3-second attach retry if the card isn't ready yet).
 				static bool s_mmapDumpedThisRun = false;
 				std::error_code ec;
-				auto temp_path = std::filesystem::temp_directory_path(ec);
-				if (!ec) {
-					path = (temp_path / "mmap.txt").string();
+				const auto mapFile = GetMemoryMapPath();
+				if (!mapFile.empty()) {
+					path = mapFile.string();
 					bool dumped = s_mmapDumpedThisRun && std::filesystem::exists(path, ec);
 					if (!dumped) {
 						LOG("dumping memory map to file...\n");
@@ -234,6 +253,10 @@ bool Memory::Init(std::string process_name, bool memMap, bool debug)
 						args[argc++] = (LPSTR)"-memmap";
 						args[argc++] = (LPSTR)path.c_str();
 					}
+				}
+				else
+				{
+					LOG("[!] Failed to resolve executable directory; defaulting to no memory map\n");
 				}
 			}
 			this->vHandle = VMMDLL_Initialize(argc, args);
